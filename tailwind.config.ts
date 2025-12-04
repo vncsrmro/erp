@@ -58,9 +58,9 @@ const config: Config = {
                 sans: ["Inter", "system-ui", "sans-serif"],
             },
             boxShadow: {
-                glow: "0 0 20px rgba(99, 102, 241, 0.3)",
-                "glow-accent": "0 0 20px rgba(34, 211, 238, 0.3)",
-                "glow-success": "0 0 20px rgba(16, 185, 129, 0.3)",
+                glow: "0 0 20px rgba(0, 224, 150, 0.3)",
+                "glow-accent": "0 0 20px rgba(0, 240, 255, 0.3)",
+                "glow-success": "0 0 20px rgba(0, 224, 150, 0.3)",
                 "glow-danger": "0 0 20px rgba(239, 68, 68, 0.3)",
                 card: "0 4px 20px rgba(0, 0, 0, 0.4)",
                 elevated: "0 8px 32px rgba(0, 0, 0, 0.5)",

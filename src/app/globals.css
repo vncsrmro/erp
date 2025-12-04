@@ -9,13 +9,15 @@
   --background-secondary: #121218;
   --background-tertiary: #1a1a24;
   --background-card: #16161e;
-  --primary: #6366f1;
-  --primary-light: #818cf8;
-  --primary-glow: rgba(99, 102, 241, 0.3);
-  --accent: #22d3ee;
-  --accent-glow: rgba(34, 211, 238, 0.3);
-  --success: #10b981;
-  --warning: #f59e0b;
+  --primary: #00E096;
+  --primary-light: #34faac;
+  --primary-dark: #00b377;
+  --primary-glow: rgba(0, 224, 150, 0.4);
+  --accent: #00F0FF;
+  --accent-light: #67f8ff;
+  --accent-glow: rgba(0, 240, 255, 0.4);
+  --success: #00E096;
+  --warning: #FFB020;
   --danger: #ef4444;
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
@@ -189,9 +191,9 @@ body {
   }
 
   .badge-primary {
-    background: rgba(99, 102, 241, 0.15);
-    color: #818cf8;
-    border: 1px solid rgba(99, 102, 241, 0.3);
+    background: rgba(0, 224, 150, 0.15);
+    color: #34faac;
+    border: 1px solid rgba(0, 224, 150, 0.3);
   }
 
   /* Mobile-first touch targets */
@@ -212,6 +214,7 @@ body {
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
