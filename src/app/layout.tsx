@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { AuthProvider } from "@/components/providers/AuthProvider";
 
 export const metadata: Metadata = {
     title: "InovaSys Manager | ERP/CRM",
@@ -32,8 +33,11 @@ export default function RootLayout({
     return (
         <html lang="pt-BR" className="dark">
             <body className="min-h-screen bg-background text-text-primary antialiased">
-                {children}
+                <AuthProvider>
+                    {children}
+                </AuthProvider>
             </body>
         </html>
     );
 }
+

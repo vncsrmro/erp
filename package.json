@@ -9,28 +9,30 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "next": "^14.2.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "@supabase/ssr": "^0.8.0",
+    "@supabase/supabase-js": "^2.86.2",
+    "clsx": "^2.1.0",
+    "crypto-js": "^4.2.0",
     "framer-motion": "^11.0.0",
     "lucide-react": "^0.460.0",
-    "crypto-js": "^4.2.0",
-    "recharts": "^2.12.0",
-    "next-pwa": "^5.6.0",
+    "next": "^14.2.0",
     "next-auth": "^4.24.0",
-    "clsx": "^2.1.0",
+    "next-pwa": "^5.6.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "recharts": "^2.12.0",
     "tailwind-merge": "^2.2.0"
   },
   "devDependencies": {
+    "@types/crypto-js": "^4.2.0",
     "@types/node": "^20.0.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
-    "@types/crypto-js": "^4.2.0",
-    "typescript": "^5.0.0",
-    "tailwindcss": "^3.4.0",
-    "postcss": "^8.4.0",
     "autoprefixer": "^10.4.0",
     "eslint": "^8.0.0",
-    "eslint-config-next": "^14.2.0"
+    "eslint-config-next": "^14.2.0",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.0.0"
   }
 }
