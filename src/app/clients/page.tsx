@@ -5,11 +5,13 @@ import { useState, useEffect, useCallback } from "react";
 import {
     Plus,
     Search,
-    Filter,
     Phone,
     Mail,
     ChevronRight,
-    User
+    User,
+    MessageCircle,
+    Building,
+    UserCircle
 } from "lucide-react";
 import { AppShell } from "@/components/layout";
 import { Button, Input } from "@/components/ui";
@@ -44,6 +46,8 @@ export default function ClientsPage() {
                 id: c.id,
                 user_id: "mock",
                 name: c.name,
+                cnpj: null,
+                responsible: null,
                 email: c.email,
                 phone: c.phone || null,
                 plan: c.plan,
@@ -66,9 +70,12 @@ export default function ClientsPage() {
     }, [fetchClients]);
 
     const filteredClients = clients.filter((client) => {
-        const matchesSearch = client.name
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase());
+        const searchLower = searchQuery.toLowerCase();
+        const matchesSearch =
+            client.name.toLowerCase().includes(searchLower) ||
+            client.email.toLowerCase().includes(searchLower) ||
+            client.cnpj?.toLowerCase().includes(searchLower) ||
+            client.responsible?.toLowerCase().includes(searchLower);
         const matchesFilter =
             filterStatus === "all" || client.status === filterStatus;
         return matchesSearch && matchesFilter;
@@ -97,17 +104,13 @@ export default function ClientsPage() {
         }
     };
 
-    const getPlanLabel = (plan: string) => {
-        switch (plan) {
-            case "starter":
-                return "Starter";
-            case "professional":
-                return "Professional";
-            case "enterprise":
-                return "Enterprise";
-            default:
-                return plan;
-        }
+    const getWhatsAppLink = (phone: string | null) => {
+        if (!phone) return null;
+        // Remove all non-digits
+        const cleanPhone = phone.replace(/\D/g, "");
+        // Add Brazil country code if not present
+        const fullPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
+        return `https://wa.me/${fullPhone}`;
     };
 
     return (
@@ -118,7 +121,7 @@ export default function ClientsPage() {
                     <div className="flex gap-3">
                         <div className="flex-1">
                             <Input
-                                placeholder="Buscar cliente..."
+                                placeholder="Buscar por nome, e-mail, CNPJ..."
                                 icon={Search}
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -151,40 +154,69 @@ export default function ClientsPage() {
                     <div className="space-y-3">
                         {filteredClients.map((client, index) => {
                             const badge = getStatusBadge(client.status, client.payment_status);
+                            const whatsappLink = getWhatsAppLink(client.phone);
+
                             return (
                                 <motion.div
                                     key={client.id}
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: index * 0.05 }}
-                                    whileHover={{ x: 4 }}
-                                    className="card-elevated p-4 cursor-pointer"
+                                    className="card-elevated p-4"
                                 >
-                                    <div className="flex items-center gap-4">
+                                    <div className="flex items-start gap-4">
                                         {/* Avatar */}
-                                        <div className="w-12 h-12 rounded-xl bg-primary/15 flex items-center justify-center text-primary font-bold text-lg">
+                                        <div className="w-12 h-12 rounded-xl bg-primary/15 flex items-center justify-center text-primary font-bold text-lg flex-shrink-0">
                                             {client.name.charAt(0)}
                                         </div>
 
                                         {/* Info */}
                                         <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <h3 className="font-semibold text-text-primary truncate">
+                                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                <h3 className="font-semibold text-text-primary">
                                                     {client.name}
                                                 </h3>
                                                 <span className={cn("badge", `badge-${badge.variant}`)}>
                                                     {badge.text}
                                                 </span>
                                             </div>
-                                            <div className="flex items-center gap-3 text-sm text-text-muted">
+
+                                            {/* Responsible & CNPJ */}
+                                            {(client.responsible || client.cnpj) && (
+                                                <div className="flex flex-wrap items-center gap-3 text-sm text-text-secondary mb-2">
+                                                    {client.responsible && (
+                                                        <span className="flex items-center gap-1">
+                                                            <UserCircle className="w-3.5 h-3.5" />
+                                                            {client.responsible}
+                                                        </span>
+                                                    )}
+                                                    {client.cnpj && (
+                                                        <span className="flex items-center gap-1 text-text-muted">
+                                                            <Building className="w-3.5 h-3.5" />
+                                                            {client.cnpj}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {/* Contact */}
+                                            <div className="flex flex-wrap items-center gap-3 text-sm text-text-muted">
                                                 <span className="flex items-center gap-1">
                                                     <Mail className="w-3 h-3" />
                                                     {client.email}
                                                 </span>
+                                                {client.phone && (
+                                                    <span className="flex items-center gap-1">
+                                                        <Phone className="w-3 h-3" />
+                                                        {client.phone}
+                                                    </span>
+                                                )}
                                             </div>
+
+                                            {/* Plan & Value */}
                                             <div className="flex items-center gap-3 mt-2">
                                                 <span className="text-xs text-text-secondary">
-                                                    {getPlanLabel(client.plan)}
+                                                    {client.plan}
                                                 </span>
                                                 <span className="text-xs font-semibold text-primary">
                                                     {formatCurrency(client.plan_value)}/mês
@@ -192,13 +224,29 @@ export default function ClientsPage() {
                                             </div>
                                         </div>
 
-                                        {/* Arrow */}
-                                        <ChevronRight className="w-5 h-5 text-text-muted" />
+                                        {/* Actions */}
+                                        <div className="flex items-center gap-2">
+                                            {/* WhatsApp Button */}
+                                            {whatsappLink && (
+                                                <motion.a
+                                                    whileHover={{ scale: 1.1 }}
+                                                    whileTap={{ scale: 0.9 }}
+                                                    href={whatsappLink}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="p-2.5 rounded-xl bg-success/15 text-success hover:bg-success/25 transition-colors"
+                                                    title="Enviar mensagem no WhatsApp"
+                                                >
+                                                    <MessageCircle className="w-5 h-5" />
+                                                </motion.a>
+                                            )}
+                                            <ChevronRight className="w-5 h-5 text-text-muted" />
+                                        </div>
                                     </div>
 
                                     {/* Tags */}
                                     {client.tags && client.tags.length > 0 && (
-                                        <div className="flex gap-2 mt-3 pt-3 border-t border-border">
+                                        <div className="flex gap-2 mt-3 pt-3 border-t border-border flex-wrap">
                                             {client.tags.map((tag) => (
                                                 <span
                                                     key={tag}
@@ -214,10 +262,13 @@ export default function ClientsPage() {
                         })}
                     </div>
 
-                    {filteredClients.length === 0 && (
+                    {filteredClients.length === 0 && !loading && (
                         <div className="text-center py-12">
                             <User className="w-12 h-12 text-text-muted mx-auto mb-4" />
                             <p className="text-text-secondary">Nenhum cliente encontrado</p>
+                            <p className="text-text-muted text-sm mt-2">
+                                Adicione seu primeiro cliente clicando em "Novo"
+                            </p>
                         </div>
                     )}
                 </div>
@@ -231,4 +282,5 @@ export default function ClientsPage() {
         </>
     );
 }
+
 

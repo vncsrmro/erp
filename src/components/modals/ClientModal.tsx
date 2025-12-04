@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { User, Mail, Phone, CreditCard, Tag, Loader2 } from "lucide-react";
+import { User, Mail, Phone, CreditCard, Tag, Loader2, Building, UserCircle, DollarSign } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Input, Select } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -15,28 +15,46 @@ interface ClientModalProps {
     onSuccess?: () => void;
 }
 
-const planOptions = [
-    { value: "starter", label: "Starter - R$ 99/mês" },
-    { value: "professional", label: "Professional - R$ 199/mês" },
-    { value: "enterprise", label: "Enterprise - R$ 499/mês" },
-];
-
-const planValues: Record<string, number> = {
-    starter: 99,
-    professional: 199,
-    enterprise: 499,
-};
-
 export function ClientModal({ isOpen, onClose, onSuccess }: ClientModalProps) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [formData, setFormData] = useState({
         name: "",
+        cnpj: "",
+        responsible: "",
         email: "",
         phone: "",
-        plan: "starter",
+        planName: "",
+        planValue: "",
         tags: "",
     });
+
+    const formatCNPJ = (value: string) => {
+        const numbers = value.replace(/\D/g, "");
+        if (numbers.length <= 14) {
+            return numbers
+                .replace(/(\d{2})(\d)/, "$1.$2")
+                .replace(/(\d{3})(\d)/, "$1.$2")
+                .replace(/(\d{3})(\d)/, "$1/$2")
+                .replace(/(\d{4})(\d)/, "$1-$2");
+        }
+        return value.slice(0, 18);
+    };
+
+    const formatPhone = (value: string) => {
+        const numbers = value.replace(/\D/g, "");
+        if (numbers.length <= 11) {
+            if (numbers.length <= 10) {
+                return numbers
+                    .replace(/(\d{2})(\d)/, "($1) $2")
+                    .replace(/(\d{4})(\d)/, "$1-$2");
+            }
+            return numbers
+                .replace(/(\d{2})(\d)/, "($1) $2")
+                .replace(/(\d{5})(\d)/, "$1-$2");
+        }
+        return value.slice(0, 15);
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -52,13 +70,17 @@ export function ClientModal({ isOpen, onClose, onSuccess }: ClientModalProps) {
                 return;
             }
 
+            const planValue = parseFloat(formData.planValue.replace(/[^\d.,]/g, "").replace(",", ".")) || 0;
+
             const clientData: ClientInsert = {
                 user_id: user.id,
                 name: formData.name,
+                cnpj: formData.cnpj || null,
+                responsible: formData.responsible || null,
                 email: formData.email,
-                phone: formData.phone || null,
-                plan: formData.plan as 'starter' | 'professional' | 'enterprise',
-                plan_value: planValues[formData.plan],
+                phone: formData.phone.replace(/\D/g, "") || null,
+                plan: formData.planName || "Personalizado",
+                plan_value: planValue,
                 status: "active",
                 payment_status: "pending",
                 project_status: "active",
@@ -74,7 +96,16 @@ export function ClientModal({ isOpen, onClose, onSuccess }: ClientModalProps) {
             if (insertError) throw insertError;
 
             // Reset form and close
-            setFormData({ name: "", email: "", phone: "", plan: "starter", tags: "" });
+            setFormData({
+                name: "",
+                cnpj: "",
+                responsible: "",
+                email: "",
+                phone: "",
+                planName: "",
+                planValue: "",
+                tags: "",
+            });
             onSuccess?.();
             onClose();
         } catch (err) {
@@ -87,8 +118,22 @@ export function ClientModal({ isOpen, onClose, onSuccess }: ClientModalProps) {
     const handleChange = (field: string) => (
         e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
     ) => {
-        setFormData(prev => ({ ...prev, [field]: e.target.value }));
+        let value = e.target.value;
+
+        // Format CNPJ
+        if (field === "cnpj") {
+            value = formatCNPJ(value);
+        }
+
+        // Format phone
+        if (field === "phone") {
+            value = formatPhone(value);
+        }
+
+        setFormData(prev => ({ ...prev, [field]: value }));
     };
+
+    const planValue = parseFloat(formData.planValue.replace(/[^\d.,]/g, "").replace(",", ".")) || 0;
 
     return (
         <Modal
@@ -96,8 +141,9 @@ export function ClientModal({ isOpen, onClose, onSuccess }: ClientModalProps) {
             onClose={onClose}
             title="Novo Cliente"
             subtitle="Adicione um novo cliente ao sistema"
+            size="lg"
         >
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-4">
                 {error && (
                     <motion.div
                         initial={{ opacity: 0, y: -10 }}
@@ -108,40 +154,93 @@ export function ClientModal({ isOpen, onClose, onSuccess }: ClientModalProps) {
                     </motion.div>
                 )}
 
-                <Input
-                    label="Nome da Empresa"
-                    placeholder="Ex: Tech Solutions Ltda"
-                    icon={User}
-                    value={formData.name}
-                    onChange={handleChange("name")}
-                    required
-                />
+                {/* Company Info Section */}
+                <div className="space-y-4">
+                    <h3 className="text-sm font-medium text-text-secondary flex items-center gap-2">
+                        <Building className="w-4 h-4" />
+                        Dados da Empresa
+                    </h3>
 
-                <Input
-                    label="E-mail"
-                    type="email"
-                    placeholder="contato@empresa.com"
-                    icon={Mail}
-                    value={formData.email}
-                    onChange={handleChange("email")}
-                    required
-                />
+                    <Input
+                        label="Nome da Empresa"
+                        placeholder="Ex: Tech Solutions Ltda"
+                        icon={Building}
+                        value={formData.name}
+                        onChange={handleChange("name")}
+                        required
+                    />
 
-                <Input
-                    label="Telefone"
-                    placeholder="(11) 99999-9999"
-                    icon={Phone}
-                    value={formData.phone}
-                    onChange={handleChange("phone")}
-                />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Input
+                            label="CNPJ"
+                            placeholder="00.000.000/0000-00"
+                            value={formData.cnpj}
+                            onChange={handleChange("cnpj")}
+                        />
 
-                <Select
-                    label="Plano"
-                    options={planOptions}
-                    value={formData.plan}
-                    onChange={handleChange("plan")}
-                />
+                        <Input
+                            label="Responsável"
+                            placeholder="Nome do responsável"
+                            icon={UserCircle}
+                            value={formData.responsible}
+                            onChange={handleChange("responsible")}
+                        />
+                    </div>
+                </div>
 
+                {/* Contact Section */}
+                <div className="space-y-4 pt-2">
+                    <h3 className="text-sm font-medium text-text-secondary flex items-center gap-2">
+                        <Phone className="w-4 h-4" />
+                        Contato
+                    </h3>
+
+                    <Input
+                        label="E-mail"
+                        type="email"
+                        placeholder="contato@empresa.com"
+                        icon={Mail}
+                        value={formData.email}
+                        onChange={handleChange("email")}
+                        required
+                    />
+
+                    <Input
+                        label="WhatsApp"
+                        placeholder="(11) 99999-9999"
+                        icon={Phone}
+                        value={formData.phone}
+                        onChange={handleChange("phone")}
+                    />
+                </div>
+
+                {/* Plan Section */}
+                <div className="space-y-4 pt-2">
+                    <h3 className="text-sm font-medium text-text-secondary flex items-center gap-2">
+                        <CreditCard className="w-4 h-4" />
+                        Plano
+                    </h3>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Input
+                            label="Nome do Plano"
+                            placeholder="Ex: Starter, Professional, Personalizado"
+                            value={formData.planName}
+                            onChange={handleChange("planName")}
+                        />
+
+                        <Input
+                            label="Valor Mensal (R$)"
+                            placeholder="0,00"
+                            icon={DollarSign}
+                            value={formData.planValue}
+                            onChange={handleChange("planValue")}
+                            required
+                        />
+                    </div>
+                </div>
+
+                {/* Tags */}
                 <Input
                     label="Tags (separadas por vírgula)"
                     placeholder="web, seo, ads"
@@ -151,17 +250,25 @@ export function ClientModal({ isOpen, onClose, onSuccess }: ClientModalProps) {
                 />
 
                 {/* Plan Preview Card */}
-                <motion.div
-                    layout
-                    className="p-4 rounded-xl bg-primary/10 border border-primary/30"
-                >
-                    <div className="flex items-center justify-between">
-                        <span className="text-sm text-text-secondary">Valor Mensal</span>
-                        <span className="text-xl font-bold text-primary">
-                            R$ {planValues[formData.plan]},00
-                        </span>
-                    </div>
-                </motion.div>
+                {planValue > 0 && (
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="p-4 rounded-xl bg-primary/10 border border-primary/30"
+                    >
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <span className="text-sm text-text-secondary">Plano</span>
+                                <p className="font-medium text-text-primary">
+                                    {formData.planName || "Personalizado"}
+                                </p>
+                            </div>
+                            <span className="text-xl font-bold text-primary">
+                                R$ {planValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}/mês
+                            </span>
+                        </div>
+                    </motion.div>
+                )}
 
                 <div className="flex gap-3 pt-2">
                     <Button
@@ -186,3 +293,4 @@ export function ClientModal({ isOpen, onClose, onSuccess }: ClientModalProps) {
         </Modal>
     );
 }
+

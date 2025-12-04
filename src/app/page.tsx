@@ -60,6 +60,8 @@ export default function DashboardPage() {
                 id: c.id,
                 user_id: "mock",
                 name: c.name,
+                cnpj: null,
+                responsible: null,
                 email: c.email,
                 phone: c.phone || null,
                 plan: c.plan,

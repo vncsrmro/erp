@@ -14,9 +14,11 @@ export interface Database {
                     id: string;
                     user_id: string;
                     name: string;
+                    cnpj: string | null;
+                    responsible: string | null;
                     email: string;
                     phone: string | null;
-                    plan: 'starter' | 'professional' | 'enterprise';
+                    plan: string;
                     plan_value: number;
                     status: 'active' | 'trial' | 'overdue' | 'inactive';
                     payment_status: 'paid' | 'pending' | 'overdue';
