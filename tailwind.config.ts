@@ -18,26 +18,26 @@ const config: Config = {
                     card: "#16161e",
                 },
                 primary: {
-                    DEFAULT: "#10b981", // InovaSys Green (Emerald)
-                    light: "#34d399",
-                    dark: "#059669",
-                    glow: "rgba(16, 185, 129, 0.3)",
+                    DEFAULT: "#00E096", // Neon Green
+                    light: "#34faac",
+                    dark: "#00b377",
+                    glow: "rgba(0, 224, 150, 0.4)",
                 },
                 accent: {
-                    DEFAULT: "#22d3ee", // Cyan neon
-                    light: "#67e8f9",
-                    dark: "#06b6d4",
-                    glow: "rgba(34, 211, 238, 0.3)",
+                    DEFAULT: "#00F0FF", // Neon Cyan
+                    light: "#67f8ff",
+                    dark: "#00c0cc",
+                    glow: "rgba(0, 240, 255, 0.4)",
                 },
                 success: {
-                    DEFAULT: "#10b981",
-                    light: "#34d399",
-                    dark: "#059669",
+                    DEFAULT: "#00E096",
+                    light: "#34faac",
+                    dark: "#00b377",
                 },
                 warning: {
-                    DEFAULT: "#f59e0b",
-                    light: "#fbbf24",
-                    dark: "#d97706",
+                    DEFAULT: "#FFB020",
+                    light: "#ffc45e",
+                    dark: "#cc8d1a",
                 },
                 danger: {
                     DEFAULT: "#ef4444",

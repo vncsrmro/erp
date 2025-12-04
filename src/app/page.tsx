@@ -47,7 +47,7 @@ export default function DashboardPage() {
         try {
             const supabase = getSupabase();
 
-            const [clientsRes, expensesRes, revenuesRes, domainsRes, projectsRes] = await Promise.all([
+            const results = await Promise.allSettled([
                 supabase.from("clients").select("*"),
                 supabase.from("expenses").select("*"),
                 supabase.from("revenues").select("*"),
@@ -55,19 +55,35 @@ export default function DashboardPage() {
                 supabase.from("projects").select("*"),
             ]);
 
-            setClients(clientsRes.data || []);
-            setExpenses(expensesRes.data || []);
-            setRevenues(revenuesRes.data || []);
-            setDomains(domainsRes.data || []);
-            setProjects(projectsRes.data || []);
+            const [clientsRes, expensesRes, revenuesRes, domainsRes, projectsRes] = results;
+
+            if (clientsRes.status === "fulfilled" && clientsRes.value.data) {
+                setClients(clientsRes.value.data);
+            }
+            if (expensesRes.status === "fulfilled" && expensesRes.value.data) {
+                setExpenses(expensesRes.value.data);
+            }
+            if (revenuesRes.status === "fulfilled" && revenuesRes.value.data) {
+                setRevenues(revenuesRes.value.data);
+            }
+            if (domainsRes.status === "fulfilled" && domainsRes.value.data) {
+                setDomains(domainsRes.value.data);
+            }
+            if (projectsRes.status === "fulfilled" && projectsRes.value.data) {
+                setProjects(projectsRes.value.data);
+            }
+
+            // Log errors for debugging
+            results.forEach((res, index) => {
+                if (res.status === "rejected") {
+                    console.error(`Error fetching data at index ${index}:`, res.reason);
+                } else if (res.value.error) {
+                    console.error(`Supabase error at index ${index}:`, res.value.error);
+                }
+            });
+
         } catch (error) {
-            console.error(error);
-            // Ensure empty state on error instead of mock data
-            setClients([]);
-            setExpenses([]);
-            setRevenues([]);
-            setDomains([]);
-            setProjects([]);
+            console.error("Unexpected error fetching dashboard data:", error);
         } finally {
             setLoading(false);
             setRefreshing(false);
