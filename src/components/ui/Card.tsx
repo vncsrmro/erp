@@ -40,7 +40,7 @@ interface StatCardProps {
         value: number;
         isPositive: boolean;
     };
-    variant?: "default" | "success" | "warning" | "danger";
+    variant?: "default" | "primary" | "success" | "warning" | "danger";
 }
 
 export function StatCard({
@@ -53,6 +53,7 @@ export function StatCard({
 }: StatCardProps) {
     const variantStyles = {
         default: "text-primary",
+        primary: "text-primary",
         success: "text-success",
         warning: "text-warning",
         danger: "text-danger",
@@ -60,6 +61,7 @@ export function StatCard({
 
     const glowStyles = {
         default: "group-hover:shadow-glow",
+        primary: "group-hover:shadow-glow",
         success: "group-hover:shadow-glow-success",
         warning: "",
         danger: "group-hover:shadow-glow-danger",
