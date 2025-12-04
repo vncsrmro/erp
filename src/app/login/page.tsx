@@ -65,7 +65,7 @@ export default function LoginPage() {
                     transition={{ delay: 0.1 }}
                     className="text-center mb-8"
                 >
-                    <div className="relative w-56 h-24 mx-auto mb-4">
+                    <div className="relative w-48 h-20 mx-auto mb-4">
                         <Image
                             src="/logo-white.svg"
                             alt="InovaSys Manager"
@@ -188,7 +188,7 @@ export default function LoginPage() {
                     transition={{ delay: 0.4 }}
                     className="text-center text-xs text-text-muted mt-8"
                 >
-                    Desenvolvido com � pela{" "}
+                    Desenvolvido com 💗 pela{" "}
                     <a
                         href="https://inovasys.digital"
                         target="_blank"

@@ -1,21 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100" fill="none">
   <!-- Code Symbol </> -->
-  <g stroke="#FFFFFF" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
-    <!-- Left bracket < -->
-    <path d="M155 25 L130 55 L155 85"/>
-    <!-- Slash / -->
-    <path d="M175 20 L200 90"/>
-    <!-- Right bracket > -->
-    <path d="M220 25 L245 55 L220 85"/>
+  <g stroke="#FFFFFF" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M70 15 L50 35 L70 55"/>
+    <path d="M90 10 L110 60"/>
+    <path d="M130 15 L150 35 L130 55"/>
   </g>
-  
   <!-- Text "inovasys" -->
-  <text x="200" y="140" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="52" fill="#FFFFFF">
-    inovasys
-  </text>
-  
-  <!-- Tagline -->
-  <text x="200" y="175" text-anchor="middle" font-family="Arial, sans-serif" font-style="italic" font-size="16" fill="#FFFFFF" opacity="0.8">
-    soluções que transformam o seu negócio
-  </text>
+  <g fill="#FFFFFF">
+    <text x="100" y="85" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-weight="700" font-size="28">inovasys</text>
+  </g>
 </svg>

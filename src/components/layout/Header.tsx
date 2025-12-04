@@ -46,7 +46,7 @@ export function Header({ title, subtitle, showSearch = true, onMenuClick, header
                     <Link href="/" className="flex items-center gap-2 group">
                         <div className="relative w-32 h-10 transition-transform group-hover:scale-105">
                             <Image
-                                src="/logo.png"
+                                src="/logo-white.svg"
                                 alt="InovaSys"
                                 fill
                                 className="object-contain object-left"
