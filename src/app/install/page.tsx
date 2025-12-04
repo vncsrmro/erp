@@ -353,7 +353,15 @@ export default function InstallPage() {
 
             {/* Footer */}
             <footer className="text-center py-6 text-sm text-text-muted">
-                Desenvolvido com 💚 pela <span className="text-primary font-medium">InovaSys</span>
+                Desenvolvido com 💚 pela{" "}
+                <a
+                    href="https://inovasys.digital"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary font-medium hover:underline"
+                >
+                    InovaSys
+                </a>
             </footer>
         </div>
     );

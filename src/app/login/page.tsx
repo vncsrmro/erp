@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Mail, Lock, Eye, EyeOff, Loader2, Sparkles } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
+import Image from "next/image";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
@@ -64,12 +65,15 @@ export default function LoginPage() {
                     transition={{ delay: 0.1 }}
                     className="text-center mb-8"
                 >
-                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/20 border border-primary/30 mb-4">
-                        <Sparkles className="w-8 h-8 text-primary" />
+                    <div className="relative w-48 h-16 mx-auto mb-4">
+                        <Image
+                            src="/logo.png"
+                            alt="InovaSys Manager"
+                            fill
+                            className="object-contain"
+                            priority
+                        />
                     </div>
-                    <h1 className="text-2xl font-bold text-text-primary">
-                        InovaSys Manager
-                    </h1>
                     <p className="text-text-muted mt-1">
                         {isLogin ? "Acesse sua conta" : "Crie sua conta"}
                     </p>
@@ -184,7 +188,15 @@ export default function LoginPage() {
                     transition={{ delay: 0.4 }}
                     className="text-center text-xs text-text-muted mt-8"
                 >
-                    Desenvolvido com 💗 pela InovaSys
+                    Desenvolvido com � pela{" "}
+                    <a
+                        href="https://inovasys.digital"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary font-medium hover:underline"
+                    >
+                        InovaSys
+                    </a>
                 </motion.p>
             </motion.div>
         </div>

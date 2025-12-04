@@ -147,17 +147,22 @@ export default function DashboardPage() {
         return days <= 30;
     }).length;
 
-    const pendingRevenue = revenues
+    // Pending revenues from invoices/revenues table
+    const pendingInvoices = revenues
         .filter((r) => !r.is_paid)
         .reduce((sum, r) => sum + r.amount, 0);
+
+    // MRR from active clients (expected monthly recurring revenue)
+    const mrr = clients
+        .filter((c) => c.status === "active")
+        .reduce((sum, c) => sum + c.plan_value, 0);
+
+    // Total A Receber = Pending Invoices + MRR (expected this month from clients)
+    const pendingRevenue = pendingInvoices + mrr;
 
     const pendingExpenses = expenses
         .filter((e) => !e.is_paid)
         .reduce((sum, e) => sum + e.amount, 0);
-
-    const mrr = clients
-        .filter((c) => c.status === "active")
-        .reduce((sum, c) => sum + c.plan_value, 0);
 
     const activeProjects = projects.filter(p => p.status === "in_progress").length;
     const backlogProjects = projects.filter(p => p.status === "backlog").length;
