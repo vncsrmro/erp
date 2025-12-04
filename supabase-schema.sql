@@ -102,6 +102,11 @@ ALTER TABLE vault_credentials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
 
 -- Clients Policies
+DROP POLICY IF EXISTS "Users can view own clients" ON clients;
+DROP POLICY IF EXISTS "Users can insert own clients" ON clients;
+DROP POLICY IF EXISTS "Users can update own clients" ON clients;
+DROP POLICY IF EXISTS "Users can delete own clients" ON clients;
+
 CREATE POLICY "Users can view own clients" ON clients
     FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own clients" ON clients
@@ -112,6 +117,11 @@ CREATE POLICY "Users can delete own clients" ON clients
     FOR DELETE USING (auth.uid() = user_id);
 
 -- Expenses Policies
+DROP POLICY IF EXISTS "Users can view own expenses" ON expenses;
+DROP POLICY IF EXISTS "Users can insert own expenses" ON expenses;
+DROP POLICY IF EXISTS "Users can update own expenses" ON expenses;
+DROP POLICY IF EXISTS "Users can delete own expenses" ON expenses;
+
 CREATE POLICY "Users can view own expenses" ON expenses
     FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own expenses" ON expenses
@@ -122,6 +132,11 @@ CREATE POLICY "Users can delete own expenses" ON expenses
     FOR DELETE USING (auth.uid() = user_id);
 
 -- Revenues Policies
+DROP POLICY IF EXISTS "Users can view own revenues" ON revenues;
+DROP POLICY IF EXISTS "Users can insert own revenues" ON revenues;
+DROP POLICY IF EXISTS "Users can update own revenues" ON revenues;
+DROP POLICY IF EXISTS "Users can delete own revenues" ON revenues;
+
 CREATE POLICY "Users can view own revenues" ON revenues
     FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own revenues" ON revenues
@@ -132,6 +147,11 @@ CREATE POLICY "Users can delete own revenues" ON revenues
     FOR DELETE USING (auth.uid() = user_id);
 
 -- Domains Policies
+DROP POLICY IF EXISTS "Users can view own domains" ON domains;
+DROP POLICY IF EXISTS "Users can insert own domains" ON domains;
+DROP POLICY IF EXISTS "Users can update own domains" ON domains;
+DROP POLICY IF EXISTS "Users can delete own domains" ON domains;
+
 CREATE POLICY "Users can view own domains" ON domains
     FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own domains" ON domains
@@ -142,6 +162,11 @@ CREATE POLICY "Users can delete own domains" ON domains
     FOR DELETE USING (auth.uid() = user_id);
 
 -- Vault Credentials Policies
+DROP POLICY IF EXISTS "Users can view own credentials" ON vault_credentials;
+DROP POLICY IF EXISTS "Users can insert own credentials" ON vault_credentials;
+DROP POLICY IF EXISTS "Users can update own credentials" ON vault_credentials;
+DROP POLICY IF EXISTS "Users can delete own credentials" ON vault_credentials;
+
 CREATE POLICY "Users can view own credentials" ON vault_credentials
     FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own credentials" ON vault_credentials
@@ -152,6 +177,11 @@ CREATE POLICY "Users can delete own credentials" ON vault_credentials
     FOR DELETE USING (auth.uid() = user_id);
 
 -- Projects Policies
+DROP POLICY IF EXISTS "Users can view own projects" ON projects;
+DROP POLICY IF EXISTS "Users can insert own projects" ON projects;
+DROP POLICY IF EXISTS "Users can update own projects" ON projects;
+DROP POLICY IF EXISTS "Users can delete own projects" ON projects;
+
 CREATE POLICY "Users can view own projects" ON projects
     FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own projects" ON projects

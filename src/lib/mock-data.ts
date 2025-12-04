@@ -270,3 +270,43 @@ export const cashFlowData = [
     { month: "Nov", inflows: 11200, outflows: 5300 },
     { month: "Dez", inflows: 9800, outflows: 4200 },
 ];
+
+export interface Project {
+    id: string;
+    clientId: string;
+    title: string;
+    description: string;
+    status: "backlog" | "in_progress" | "review" | "done";
+    priority: "low" | "medium" | "high";
+    dueDate: Date;
+}
+
+export const mockProjects: Project[] = [
+    {
+        id: "1",
+        clientId: "1",
+        title: "Website Redesign",
+        description: "Redesign completo do site institucional",
+        status: "in_progress",
+        priority: "high",
+        dueDate: new Date("2024-12-20"),
+    },
+    {
+        id: "2",
+        clientId: "2",
+        title: "SEO Optimization",
+        description: "Otimização de palavras-chave e performance",
+        status: "backlog",
+        priority: "medium",
+        dueDate: new Date("2025-01-15"),
+    },
+    {
+        id: "3",
+        clientId: "3",
+        title: "Campanha Google Ads",
+        description: "Setup e gestão de campanha mensal",
+        status: "review",
+        priority: "high",
+        dueDate: new Date("2024-12-10"),
+    },
+];

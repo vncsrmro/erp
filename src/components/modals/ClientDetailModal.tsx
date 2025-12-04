@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     User,
@@ -17,14 +17,17 @@ import {
     Trash2,
     X,
     Save,
-    AlertTriangle
+    AlertTriangle,
+    Globe,
+    Plus,
+    ExternalLink
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { getSupabase } from "@/lib/supabase";
-import { formatCurrency, cn } from "@/lib/utils";
-import type { Client } from "@/lib/database.types";
+import { formatCurrency, formatDate, cn } from "@/lib/utils";
+import type { Client, Domain } from "@/lib/database.types";
 
 interface ClientDetailModalProps {
     isOpen: boolean;
@@ -34,6 +37,8 @@ interface ClientDetailModalProps {
     onDelete?: () => void;
 }
 
+type ViewMode = "details" | "edit" | "delete" | "add-domain" | "edit-domain";
+
 export function ClientDetailModal({
     isOpen,
     onClose,
@@ -41,10 +46,12 @@ export function ClientDetailModal({
     onUpdate,
     onDelete
 }: ClientDetailModalProps) {
-    const [isEditing, setIsEditing] = useState(false);
-    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [viewMode, setViewMode] = useState<ViewMode>("details");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [domains, setDomains] = useState<Domain[]>([]);
+    const [editingDomain, setEditingDomain] = useState<Domain | null>(null);
+
     const [formData, setFormData] = useState({
         name: "",
         cnpj: "",
@@ -58,6 +65,31 @@ export function ClientDetailModal({
         status: "active" as Client["status"],
         payment_status: "pending" as Client["payment_status"],
     });
+
+    const [domainForm, setDomainForm] = useState({
+        domain: "",
+        registrar: "",
+        expiration_date: "",
+        auto_renew: true,
+        notes: "",
+    });
+
+    const fetchDomains = useCallback(async () => {
+        if (!client) return;
+        try {
+            const supabase = getSupabase();
+            const { data, error } = await supabase
+                .from("domains")
+                .select("*")
+                .eq("client_id", client.id)
+                .order("expiration_date");
+
+            if (error) throw error;
+            setDomains(data || []);
+        } catch {
+            setDomains([]);
+        }
+    }, [client]);
 
     useEffect(() => {
         if (client) {
@@ -74,11 +106,11 @@ export function ClientDetailModal({
                 status: client.status,
                 payment_status: client.payment_status,
             });
-            setIsEditing(false);
-            setShowDeleteConfirm(false);
+            setViewMode("details");
             setError(null);
+            fetchDomains();
         }
-    }, [client]);
+    }, [client, fetchDomains]);
 
     const formatCNPJ = (value: string) => {
         const numbers = value.replace(/\D/g, "");
@@ -147,7 +179,7 @@ export function ClientDetailModal({
 
             if (updateError) throw updateError;
 
-            setIsEditing(false);
+            setViewMode("details");
             onUpdate?.();
         } catch (err) {
             setError(err instanceof Error ? err.message : "Erro ao atualizar cliente");
@@ -176,6 +208,87 @@ export function ClientDetailModal({
             setError(err instanceof Error ? err.message : "Erro ao excluir cliente");
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleAddDomain = () => {
+        setDomainForm({
+            domain: "",
+            registrar: "",
+            expiration_date: "",
+            auto_renew: true,
+            notes: "",
+        });
+        setEditingDomain(null);
+        setViewMode("add-domain");
+    };
+
+    const handleEditDomain = (domain: Domain) => {
+        setDomainForm({
+            domain: domain.domain,
+            registrar: domain.registrar || "",
+            expiration_date: domain.expiration_date.split("T")[0],
+            auto_renew: domain.auto_renew,
+            notes: domain.notes || "",
+        });
+        setEditingDomain(domain);
+        setViewMode("edit-domain");
+    };
+
+    const handleSaveDomain = async () => {
+        if (!client) return;
+        setLoading(true);
+        setError(null);
+
+        try {
+            const supabase = getSupabase();
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error("Não autenticado");
+
+            if (editingDomain) {
+                const { error } = await supabase
+                    .from("domains")
+                    .update({
+                        domain: domainForm.domain,
+                        registrar: domainForm.registrar || null,
+                        expiration_date: domainForm.expiration_date,
+                        auto_renew: domainForm.auto_renew,
+                        notes: domainForm.notes || null,
+                    })
+                    .eq("id", editingDomain.id);
+                if (error) throw error;
+            } else {
+                const { error } = await supabase
+                    .from("domains")
+                    .insert({
+                        user_id: user.id,
+                        client_id: client.id,
+                        domain: domainForm.domain,
+                        registrar: domainForm.registrar || null,
+                        expiration_date: domainForm.expiration_date,
+                        auto_renew: domainForm.auto_renew,
+                        notes: domainForm.notes || null,
+                        status: "active",
+                    });
+                if (error) throw error;
+            }
+
+            setViewMode("details");
+            fetchDomains();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Erro ao salvar domínio");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDeleteDomain = async (domainId: string) => {
+        try {
+            const supabase = getSupabase();
+            await supabase.from("domains").delete().eq("id", domainId);
+            fetchDomains();
+        } catch (err) {
+            console.error("Error deleting domain:", err);
         }
     };
 
@@ -210,22 +323,40 @@ export function ClientDetailModal({
         return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     };
 
+    const getDaysUntilExpiration = (date: string) => {
+        const expDate = new Date(date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const diffTime = expDate.getTime() - today.getTime();
+        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    };
+
     if (!client) return null;
 
     const whatsappLink = getWhatsAppLink(client.phone);
     const daysUntilDue = getDaysUntilDue(client.billing_day || 10);
-    const nextDueDate = getNextDueDate(client.billing_day || 10);
+
+    const getModalTitle = () => {
+        switch (viewMode) {
+            case "edit": return "Editar Cliente";
+            case "delete": return "Excluir Cliente";
+            case "add-domain": return "Novo Domínio";
+            case "edit-domain": return "Editar Domínio";
+            default: return client.name;
+        }
+    };
 
     return (
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title={isEditing ? "Editar Cliente" : client.name}
-            subtitle={isEditing ? "Atualize as informações do cliente" : client.plan}
+            title={getModalTitle()}
+            subtitle={viewMode === "details" ? client.plan : undefined}
             size="lg"
         >
             <AnimatePresence mode="wait">
-                {showDeleteConfirm ? (
+                {/* Delete Confirmation */}
+                {viewMode === "delete" && (
                     <motion.div
                         key="delete-confirm"
                         initial={{ opacity: 0, scale: 0.95 }}
@@ -256,7 +387,7 @@ export function ClientDetailModal({
                             <Button
                                 variant="secondary"
                                 fullWidth
-                                onClick={() => setShowDeleteConfirm(false)}
+                                onClick={() => setViewMode("details")}
                                 disabled={loading}
                             >
                                 Cancelar
@@ -272,7 +403,10 @@ export function ClientDetailModal({
                             </Button>
                         </div>
                     </motion.div>
-                ) : isEditing ? (
+                )}
+
+                {/* Edit Client Form */}
+                {viewMode === "edit" && (
                     <motion.form
                         key="edit-form"
                         initial={{ opacity: 0 }}
@@ -393,7 +527,7 @@ export function ClientDetailModal({
                                 type="button"
                                 variant="secondary"
                                 fullWidth
-                                onClick={() => setIsEditing(false)}
+                                onClick={() => setViewMode("details")}
                                 disabled={loading}
                             >
                                 Cancelar
@@ -409,7 +543,98 @@ export function ClientDetailModal({
                             </Button>
                         </div>
                     </motion.form>
-                ) : (
+                )}
+
+                {/* Add/Edit Domain Form */}
+                {(viewMode === "add-domain" || viewMode === "edit-domain") && (
+                    <motion.form
+                        key="domain-form"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="space-y-4"
+                        onSubmit={(e) => { e.preventDefault(); handleSaveDomain(); }}
+                    >
+                        {error && (
+                            <div className="p-3 rounded-xl bg-danger/10 border border-danger/30 text-danger text-sm">
+                                {error}
+                            </div>
+                        )}
+
+                        <Input
+                            label="Domínio"
+                            icon={Globe}
+                            placeholder="exemplo.com.br"
+                            value={domainForm.domain}
+                            onChange={(e) => setDomainForm(prev => ({ ...prev, domain: e.target.value }))}
+                            required
+                        />
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <Input
+                                label="Registrador"
+                                placeholder="Ex: Registro.br, GoDaddy"
+                                value={domainForm.registrar}
+                                onChange={(e) => setDomainForm(prev => ({ ...prev, registrar: e.target.value }))}
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <Input
+                                label="Data de Expiração"
+                                type="date"
+                                icon={Calendar}
+                                value={domainForm.expiration_date}
+                                onChange={(e) => setDomainForm(prev => ({ ...prev, expiration_date: e.target.value }))}
+                                required
+                            />
+                            <div>
+                                <label className="block text-sm font-medium text-text-secondary mb-2">
+                                    Renovação
+                                </label>
+                                <select
+                                    value={domainForm.auto_renew ? "true" : "false"}
+                                    onChange={(e) => setDomainForm(prev => ({ ...prev, auto_renew: e.target.value === "true" }))}
+                                    className="w-full px-4 py-3 rounded-xl bg-background-secondary border border-border text-text-primary focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                                >
+                                    <option value="true">Automática</option>
+                                    <option value="false">Manual</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <Input
+                            label="Observações"
+                            placeholder="Notas sobre o domínio..."
+                            value={domainForm.notes}
+                            onChange={(e) => setDomainForm(prev => ({ ...prev, notes: e.target.value }))}
+                        />
+
+                        <div className="flex gap-3 pt-2">
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                fullWidth
+                                onClick={() => setViewMode("details")}
+                                disabled={loading}
+                            >
+                                Cancelar
+                            </Button>
+                            <Button
+                                type="submit"
+                                variant="primary"
+                                fullWidth
+                                loading={loading}
+                                icon={Save}
+                            >
+                                {editingDomain ? "Salvar" : "Adicionar"}
+                            </Button>
+                        </div>
+                    </motion.form>
+                )}
+
+                {/* View Details */}
+                {viewMode === "details" && (
                     <motion.div
                         key="view-details"
                         initial={{ opacity: 0 }}
@@ -516,6 +741,82 @@ export function ClientDetailModal({
                             </div>
                         </div>
 
+                        {/* Domains */}
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                                <h4 className="font-medium text-text-primary flex items-center gap-2">
+                                    <Globe className="w-4 h-4 text-text-muted" />
+                                    Domínios
+                                </h4>
+                                <Button size="sm" variant="secondary" icon={Plus} onClick={handleAddDomain}>
+                                    Adicionar
+                                </Button>
+                            </div>
+
+                            {domains.length === 0 ? (
+                                <p className="text-sm text-text-muted py-4 text-center">
+                                    Nenhum domínio cadastrado
+                                </p>
+                            ) : (
+                                <div className="space-y-2">
+                                    {domains.map(domain => {
+                                        const daysToExpire = getDaysUntilExpiration(domain.expiration_date);
+                                        return (
+                                            <div
+                                                key={domain.id}
+                                                className={cn(
+                                                    "flex items-center justify-between p-3 rounded-xl border",
+                                                    daysToExpire <= 30
+                                                        ? "bg-warning/5 border-warning/20"
+                                                        : "bg-background-secondary border-border"
+                                                )}
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className={cn(
+                                                        "w-8 h-8 rounded-lg flex items-center justify-center",
+                                                        daysToExpire <= 30 ? "bg-warning/15 text-warning" : "bg-primary/15 text-primary"
+                                                    )}>
+                                                        <Globe className="w-4 h-4" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-medium text-text-primary text-sm">{domain.domain}</p>
+                                                        <p className="text-xs text-text-muted">
+                                                            Expira: {formatDate(new Date(domain.expiration_date))}
+                                                            {daysToExpire <= 30 && (
+                                                                <span className="text-warning ml-1">({daysToExpire}d)</span>
+                                                            )}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                    <a
+                                                        href={`https://${domain.domain}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="p-2 rounded-lg hover:bg-background-tertiary text-text-muted hover:text-primary transition-colors"
+                                                    >
+                                                        <ExternalLink className="w-4 h-4" />
+                                                    </a>
+                                                    <button
+                                                        onClick={() => handleEditDomain(domain)}
+                                                        className="p-2 rounded-lg hover:bg-background-tertiary text-text-muted hover:text-primary transition-colors"
+                                                    >
+                                                        <Pencil className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteDomain(domain.id)}
+                                                        className="p-2 rounded-lg hover:bg-danger/10 text-text-muted hover:text-danger transition-colors"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
                         {/* Tags */}
                         {client.tags && client.tags.length > 0 && (
                             <div className="flex flex-wrap gap-2">
@@ -534,7 +835,7 @@ export function ClientDetailModal({
                         <div className="flex gap-3 pt-2">
                             <Button
                                 variant="danger"
-                                onClick={() => setShowDeleteConfirm(true)}
+                                onClick={() => setViewMode("delete")}
                                 icon={Trash2}
                             >
                                 Excluir
@@ -542,7 +843,7 @@ export function ClientDetailModal({
                             <Button
                                 variant="primary"
                                 fullWidth
-                                onClick={() => setIsEditing(true)}
+                                onClick={() => setViewMode("edit")}
                                 icon={Pencil}
                             >
                                 Editar

@@ -3,38 +3,44 @@
 import { motion } from "framer-motion";
 import { useState, useEffect, useCallback } from "react";
 import {
-    Plus,
     Globe,
     Calendar,
     AlertTriangle,
     ExternalLink,
     RefreshCw,
-    Search
+    Search,
+    User,
+    ArrowRight
 } from "lucide-react";
 import { AppShell } from "@/components/layout";
 import { Button, Input } from "@/components/ui";
-import { DomainModal } from "@/components/modals";
+import { ClientDetailModal } from "@/components/modals";
 import { getSupabase } from "@/lib/supabase";
-import { mockDomains } from "@/lib/mock-data";
+import { mockDomains, mockClients } from "@/lib/mock-data";
 import { formatDate, daysUntil, getUrgencyLevel, cn } from "@/lib/utils";
-import type { Domain } from "@/lib/database.types";
+import type { Domain, Client } from "@/lib/database.types";
+import Link from "next/link";
 
 export default function DomainsPage() {
     const [searchQuery, setSearchQuery] = useState("");
-    const [isModalOpen, setIsModalOpen] = useState(false);
     const [domains, setDomains] = useState<Domain[]>([]);
+    const [clients, setClients] = useState<Client[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const fetchDomains = useCallback(async () => {
+    // Client Modal State
+    const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+    const [isClientModalOpen, setIsClientModalOpen] = useState(false);
+
+    const fetchData = useCallback(async () => {
         try {
             const supabase = getSupabase();
-            const { data, error } = await supabase
-                .from("domains")
-                .select("*")
-                .order("expiration_date");
+            const [domainsRes, clientsRes] = await Promise.all([
+                supabase.from("domains").select("*").order("expiration_date"),
+                supabase.from("clients").select("*")
+            ]);
 
-            if (error) throw error;
-            setDomains(data || []);
+            setDomains(domainsRes.data || []);
+            setClients(clientsRes.data || []);
         } catch {
             // Fallback to mock data
             setDomains(mockDomains.map(d => ({
@@ -49,24 +55,54 @@ export default function DomainsPage() {
                 notes: null,
                 created_at: new Date().toISOString(),
             })));
+            setClients(mockClients.map(c => ({
+                id: c.id,
+                user_id: "mock",
+                name: c.name,
+                cnpj: null,
+                responsible: null,
+                email: c.email,
+                phone: c.phone || null,
+                plan: c.plan,
+                plan_value: c.planValue,
+                billing_day: 10,
+                status: c.status,
+                payment_status: c.paymentStatus,
+                project_status: c.projectStatus,
+                tags: c.tags,
+                created_at: new Date().toISOString(),
+                last_payment: c.lastPayment?.toISOString() || null,
+                next_payment: c.nextPayment?.toISOString() || null,
+            })));
         } finally {
             setLoading(false);
         }
     }, []);
 
     useEffect(() => {
-        fetchDomains();
-    }, [fetchDomains]);
+        fetchData();
+    }, [fetchData]);
+
+    const handleDomainClick = (domain: Domain) => {
+        if (!domain.client_id) return;
+        const client = clients.find(c => c.id === domain.client_id);
+        if (client) {
+            setSelectedClient(client);
+            setIsClientModalOpen(true);
+        }
+    };
 
     const domainsWithDays = domains
         .map((domain) => ({
             ...domain,
             daysRemaining: daysUntil(new Date(domain.expiration_date)),
+            clientName: clients.find(c => c.id === domain.client_id)?.name
         }))
         .sort((a, b) => a.daysRemaining - b.daysRemaining);
 
     const filteredDomains = domainsWithDays.filter((domain) =>
-        domain.domain.toLowerCase().includes(searchQuery.toLowerCase())
+        domain.domain.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        domain.clientName?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     const urgentCount = domainsWithDays.filter((d) => d.daysRemaining <= 30).length;
@@ -89,19 +125,21 @@ export default function DomainsPage() {
                         </motion.div>
                     )}
 
-                    {/* Search and Add */}
+                    {/* Search and Actions */}
                     <div className="flex gap-3">
                         <div className="flex-1">
                             <Input
-                                placeholder="Buscar domínio..."
+                                placeholder="Buscar por domínio ou cliente..."
                                 icon={Search}
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                             />
                         </div>
-                        <Button icon={Plus} size="md" onClick={() => setIsModalOpen(true)}>
-                            Novo
-                        </Button>
+                        <Link href="/clients">
+                            <Button variant="secondary" icon={ArrowRight}>
+                                Gerenciar nos Clientes
+                            </Button>
+                        </Link>
                     </div>
 
                     {/* Domain List */}
@@ -114,8 +152,9 @@ export default function DomainsPage() {
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: index * 0.05 }}
+                                    onClick={() => handleDomainClick(domain)}
                                     className={cn(
-                                        "card-elevated p-4",
+                                        "card-elevated p-4 cursor-pointer hover:border-primary/50 transition-all group",
                                         urgency === "critical" && "border-danger/50",
                                         urgency === "warning" && "border-warning/50"
                                     )}
@@ -124,29 +163,41 @@ export default function DomainsPage() {
                                         <div className="flex items-center gap-3">
                                             <div
                                                 className={cn(
-                                                    "p-2.5 rounded-xl",
+                                                    "p-2.5 rounded-xl transition-colors",
                                                     urgency === "critical" && "bg-danger/15 text-danger",
                                                     urgency === "warning" && "bg-warning/15 text-warning",
-                                                    urgency === "normal" && "bg-primary/15 text-primary"
+                                                    urgency === "normal" && "bg-primary/15 text-primary group-hover:bg-primary/20"
                                                 )}
                                             >
                                                 <Globe className="w-5 h-5" />
                                             </div>
                                             <div>
                                                 <div className="flex items-center gap-2">
-                                                    <h3 className="font-semibold text-text-primary">
+                                                    <h3 className="font-semibold text-text-primary group-hover:text-primary transition-colors">
                                                         {domain.domain}
                                                     </h3>
                                                     <a
                                                         href={`https://${domain.domain}`}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
+                                                        onClick={(e) => e.stopPropagation()}
                                                         className="text-text-muted hover:text-primary transition-colors"
                                                     >
                                                         <ExternalLink className="w-4 h-4" />
                                                     </a>
                                                 </div>
-                                                <p className="text-sm text-text-muted">{domain.registrar}</p>
+                                                <div className="flex items-center gap-2 text-sm text-text-muted">
+                                                    <span>{domain.registrar}</span>
+                                                    {domain.clientName && (
+                                                        <>
+                                                            <span>•</span>
+                                                            <span className="flex items-center gap-1 text-text-secondary">
+                                                                <User className="w-3 h-3" />
+                                                                {domain.clientName}
+                                                            </span>
+                                                        </>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
 
@@ -195,12 +246,13 @@ export default function DomainsPage() {
                 </div>
             </AppShell>
 
-            <DomainModal
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
-                onSuccess={fetchDomains}
+            <ClientDetailModal
+                isOpen={isClientModalOpen}
+                onClose={() => setIsClientModalOpen(false)}
+                client={selectedClient}
+                onUpdate={fetchData}
+                onDelete={fetchData}
             />
         </>
     );
 }
-

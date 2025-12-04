@@ -1,6 +1,4 @@
-"use client";
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
     DollarSign,
@@ -12,19 +10,21 @@ import {
     Megaphone,
     Monitor,
     Building,
-    MoreHorizontal
+    MoreHorizontal,
+    Trash2
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Input, Select } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { getSupabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
-import type { ExpenseInsert } from "@/lib/database.types";
+import type { ExpenseInsert, Expense } from "@/lib/database.types";
 
 interface ExpenseModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSuccess?: () => void;
+    initialData?: Expense | null;
 }
 
 const categories = [
@@ -42,7 +42,7 @@ const recurrenceOptions = [
     { value: "yearly", label: "Anual" },
 ];
 
-export function ExpenseModal({ isOpen, onClose, onSuccess }: ExpenseModalProps) {
+export function ExpenseModal({ isOpen, onClose, onSuccess, initialData }: ExpenseModalProps) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [formData, setFormData] = useState({
@@ -52,6 +52,49 @@ export function ExpenseModal({ isOpen, onClose, onSuccess }: ExpenseModalProps) 
         dueDate: new Date().toISOString().split("T")[0],
         recurrence: "",
     });
+
+    useEffect(() => {
+        if (initialData) {
+            setFormData({
+                category: initialData.category,
+                description: initialData.description,
+                amount: initialData.amount.toString(),
+                dueDate: new Date(initialData.due_date).toISOString().split("T")[0],
+                recurrence: initialData.recurrence_type || "",
+            });
+        } else {
+            setFormData({
+                category: "other",
+                description: "",
+                amount: "",
+                dueDate: new Date().toISOString().split("T")[0],
+                recurrence: "",
+            });
+        }
+    }, [initialData, isOpen]);
+
+    const handleDelete = async () => {
+        if (!initialData) return;
+        if (!confirm("Tem certeza que deseja excluir esta despesa?")) return;
+
+        setLoading(true);
+        try {
+            const supabase = getSupabase();
+            const { error } = await supabase
+                .from("expenses")
+                .delete()
+                .eq("id", initialData.id);
+
+            if (error) throw error;
+
+            onSuccess?.();
+            onClose();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Erro ao excluir despesa");
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -73,25 +116,29 @@ export function ExpenseModal({ isOpen, onClose, onSuccess }: ExpenseModalProps) 
                 description: formData.description,
                 amount: parseFloat(formData.amount),
                 due_date: new Date(formData.dueDate).toISOString(),
-                is_paid: false,
+                is_paid: initialData ? initialData.is_paid : false,
                 is_recurring: !!formData.recurrence,
                 recurrence_type: formData.recurrence as "monthly" | "yearly" | null || null,
-                paid_date: null,
+                paid_date: initialData ? initialData.paid_date : null,
             };
 
-            const { error: insertError } = await supabase
-                .from("expenses")
-                .insert(expenseData as unknown as Record<string, unknown>);
+            let resultError;
 
-            if (insertError) throw insertError;
+            if (initialData) {
+                const { error } = await supabase
+                    .from("expenses")
+                    .update(expenseData as unknown as Record<string, unknown>)
+                    .eq("id", initialData.id);
+                resultError = error;
+            } else {
+                const { error } = await supabase
+                    .from("expenses")
+                    .insert(expenseData as unknown as Record<string, unknown>);
+                resultError = error;
+            }
 
-            setFormData({
-                category: "other",
-                description: "",
-                amount: "",
-                dueDate: new Date().toISOString().split("T")[0],
-                recurrence: "",
-            });
+            if (resultError) throw resultError;
+
             onSuccess?.();
             onClose();
         } catch (err) {
@@ -105,8 +152,8 @@ export function ExpenseModal({ isOpen, onClose, onSuccess }: ExpenseModalProps) 
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title="Nova Despesa"
-            subtitle="Registre uma nova conta a pagar"
+            title={initialData ? "Editar Despesa" : "Nova Despesa"}
+            subtitle={initialData ? "Atualize os dados da despesa" : "Registre uma nova conta a pagar"}
         >
             <form onSubmit={handleSubmit} className="space-y-5">
                 {error && (
@@ -199,23 +246,37 @@ export function ExpenseModal({ isOpen, onClose, onSuccess }: ExpenseModalProps) 
                 )}
 
                 <div className="flex gap-3 pt-2">
-                    <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={onClose}
-                        fullWidth
-                        disabled={loading}
-                    >
-                        Cancelar
-                    </Button>
-                    <Button
-                        type="submit"
-                        variant="danger"
-                        fullWidth
-                        loading={loading}
-                    >
-                        Salvar Despesa
-                    </Button>
+                    {initialData && (
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={handleDelete}
+                            loading={loading}
+                            className="text-danger hover:bg-danger/10 border-danger/20"
+                            icon={Trash2}
+                        >
+                            Excluir
+                        </Button>
+                    )}
+                    <div className="flex-1 flex gap-3">
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={onClose}
+                            fullWidth
+                            disabled={loading}
+                        >
+                            Cancelar
+                        </Button>
+                        <Button
+                            type="submit"
+                            variant="danger"
+                            fullWidth
+                            loading={loading}
+                        >
+                            {initialData ? "Salvar Alterações" : "Salvar Despesa"}
+                        </Button>
+                    </div>
                 </div>
             </form>
         </Modal>

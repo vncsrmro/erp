@@ -1,12 +1,12 @@
 {
     "name": "InovaSys Manager",
-    "short_name": "Manager",
-    "description": "Sistema de gestão interna da InovaSys",
+    "short_name": "InovaSys",
+    "description": "Sistema de Gestão Integrada InovaSys",
     "start_url": "/",
     "display": "standalone",
-    "background_color": "#0a0a0f",
-    "theme_color": "#6366f1",
-    "orientation": "portrait-primary",
+    "background_color": "#0A0A0A",
+    "theme_color": "#0A0A0A",
+    "orientation": "portrait",
     "icons": [
         {
             "src": "/icon-192.png",

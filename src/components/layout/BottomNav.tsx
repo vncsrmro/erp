@@ -8,7 +8,8 @@ import {
     Users,
     FolderKanban,
     Wallet,
-    Settings
+    Settings,
+    Globe
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +18,7 @@ const navItems = [
     { href: "/clients", icon: Users, label: "Clientes" },
     { href: "/projects", icon: FolderKanban, label: "Projetos" },
     { href: "/finance", icon: Wallet, label: "Financeiro" },
+    { href: "/domains", icon: Globe, label: "Domínios" },
     { href: "/vault", icon: Settings, label: "Config" },
 ];
 

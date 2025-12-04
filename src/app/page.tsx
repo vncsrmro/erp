@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import {
     TrendingUp,
     TrendingDown,
@@ -11,15 +12,17 @@ import {
     Globe,
     AlertCircle,
     FileText,
-    Download,
     RefreshCw,
     Wallet,
     Calendar,
     DollarSign,
-    BarChart3
+    BarChart3,
+    FolderKanban,
+    CheckCircle2,
+    Clock
 } from "lucide-react";
 import { AppShell } from "@/components/layout";
-import { StatCard, Button } from "@/components/ui";
+import { StatCard } from "@/components/ui";
 import { CashFlowChart } from "@/components/finance/CashFlowChart";
 import { getSupabase } from "@/lib/supabase";
 import {
@@ -27,15 +30,16 @@ import {
     generateClientReport,
     generateDomainReport,
 } from "@/lib/reports";
-import { mockClients, mockExpenses, mockRevenues, mockDomains } from "@/lib/mock-data";
-import { formatCurrency, daysUntil, formatDate, cn } from "@/lib/utils";
-import type { Client, Expense, Revenue, Domain } from "@/lib/database.types";
+import { mockClients, mockExpenses, mockRevenues, mockDomains, mockProjects } from "@/lib/mock-data";
+import { formatCurrency, daysUntil, cn } from "@/lib/utils";
+import type { Client, Expense, Revenue, Domain, Project } from "@/lib/database.types";
 
 export default function DashboardPage() {
     const [clients, setClients] = useState<Client[]>([]);
     const [expenses, setExpenses] = useState<Expense[]>([]);
     const [revenues, setRevenues] = useState<Revenue[]>([]);
     const [domains, setDomains] = useState<Domain[]>([]);
+    const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
@@ -43,17 +47,19 @@ export default function DashboardPage() {
         try {
             const supabase = getSupabase();
 
-            const [clientsRes, expensesRes, revenuesRes, domainsRes] = await Promise.all([
+            const [clientsRes, expensesRes, revenuesRes, domainsRes, projectsRes] = await Promise.all([
                 supabase.from("clients").select("*"),
                 supabase.from("expenses").select("*"),
                 supabase.from("revenues").select("*"),
                 supabase.from("domains").select("*"),
+                supabase.from("projects").select("*"),
             ]);
 
             setClients(clientsRes.data || []);
             setExpenses(expensesRes.data || []);
             setRevenues(revenuesRes.data || []);
             setDomains(domainsRes.data || []);
+            setProjects(projectsRes.data || []);
         } catch {
             // Fallback to mock data
             setClients(mockClients.map(c => ({
@@ -112,6 +118,18 @@ export default function DashboardPage() {
                 notes: null,
                 created_at: new Date().toISOString(),
             })));
+            setProjects(mockProjects.map(p => ({
+                id: p.id,
+                user_id: "mock",
+                client_id: p.clientId,
+                title: p.title,
+                description: p.description,
+                status: p.status,
+                priority: p.priority,
+                due_date: p.dueDate.toISOString(),
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+            })));
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -128,16 +146,44 @@ export default function DashboardPage() {
     };
 
     // Calculate KPIs
-    const totalRevenue = revenues
-        .filter((r) => r.is_paid)
+    // Calculate KPIs
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth();
+    const currentYear = currentDate.getFullYear();
+
+    const isCurrentMonth = (dateString: string | null) => {
+        if (!dateString) return false;
+        const date = new Date(dateString);
+        return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+    };
+
+    const monthlyRevenue = revenues
+        .filter((r) => r.is_paid && isCurrentMonth(r.paid_date || r.due_date))
         .reduce((sum, r) => sum + r.amount, 0);
 
-    const totalExpenses = expenses
-        .filter((e) => e.is_paid)
+    const monthlyExpenses = expenses
+        .filter((e) => e.is_paid && isCurrentMonth(e.paid_date || e.due_date))
         .reduce((sum, e) => sum + e.amount, 0);
 
-    const netProfit = totalRevenue - totalExpenses;
+    const netProfit = monthlyRevenue - monthlyExpenses;
     const isProfit = netProfit >= 0;
+
+    // Total stats for other cards (if needed, or keep them as total?)
+    // The "Receitas" and "Despesas" cards below Net Profit currently show TOTAL.
+    // The subtitle says "pendente" or "a pagar".
+    // Usually these cards show "This Month" too in a dashboard.
+    // Let's update them to show "This Month" as well, or clarify.
+    // The user complained about "other months info".
+    // So I should probably filter ALL of them to be Current Month, OR clearly label them.
+    // "Receitas" card currently shows `totalRevenue` (all time paid).
+    // I will change it to `monthlyRevenue` to match "Lucro Líquido".
+    // And `pendingRevenue` should probably be "Pending This Month" or "Total Pending"?
+    // "Total Pending" is usually more useful.
+    // But "Total Revenue" (paid) should definitely be monthly if the label implies current status.
+    // Let's stick to Monthly for the main numbers to be consistent.
+
+    const totalRevenue = monthlyRevenue; // Update variable name usage or just reassign
+    const totalExpenses = monthlyExpenses;
 
     const activeClients = clients.filter((c) => c.status === "active").length;
     const overdueClients = clients.filter((c) => c.payment_status === "overdue").length;
@@ -158,6 +204,9 @@ export default function DashboardPage() {
     const mrr = clients
         .filter((c) => c.status === "active")
         .reduce((sum, c) => sum + c.plan_value, 0);
+
+    const activeProjects = projects.filter(p => p.status === "in_progress").length;
+    const backlogProjects = projects.filter(p => p.status === "backlog").length;
 
     // PDF Report handlers
     const handleFinancialReport = () => {
@@ -204,6 +253,7 @@ export default function DashboardPage() {
                             className={cn(
                                 "p-2 rounded-xl bg-background-secondary border border-border",
                                 "hover:bg-background-tertiary transition-colors",
+                                "disabled:opacity-50 disabled:cursor-not-allowed",
                                 refreshing && "animate-spin"
                             )}
                         >
@@ -251,35 +301,43 @@ export default function DashboardPage() {
                     variants={itemVariants}
                     className="grid grid-cols-2 lg:grid-cols-4 gap-4"
                 >
-                    <StatCard
-                        title="Lucro Líquido"
-                        value={formatCurrency(netProfit)}
-                        subtitle="Este mês"
-                        icon={isProfit ? TrendingUp : TrendingDown}
-                        variant={isProfit ? "success" : "danger"}
-                        trend={{ value: 12.5, isPositive: isProfit }}
-                    />
-                    <StatCard
-                        title="MRR"
-                        value={formatCurrency(mrr)}
-                        subtitle={`${activeClients} clientes ativos`}
-                        icon={BarChart3}
-                        variant="primary"
-                    />
-                    <StatCard
-                        title="Receitas"
-                        value={formatCurrency(totalRevenue)}
-                        subtitle={pendingRevenue > 0 ? `${formatCurrency(pendingRevenue)} pendente` : "Tudo recebido"}
-                        icon={ArrowUpRight}
-                        variant="success"
-                    />
-                    <StatCard
-                        title="Despesas"
-                        value={formatCurrency(totalExpenses)}
-                        subtitle={pendingExpenses > 0 ? `${formatCurrency(pendingExpenses)} a pagar` : "Tudo pago"}
-                        icon={ArrowDownRight}
-                        variant="danger"
-                    />
+                    <Link href="/finance">
+                        <StatCard
+                            title="Lucro Líquido"
+                            value={formatCurrency(netProfit)}
+                            subtitle="Este mês"
+                            icon={isProfit ? TrendingUp : TrendingDown}
+                            variant={isProfit ? "success" : "danger"}
+                            trend={{ value: 12.5, isPositive: isProfit }}
+                        />
+                    </Link>
+                    <Link href="/finance">
+                        <StatCard
+                            title="MRR"
+                            value={formatCurrency(mrr)}
+                            subtitle={`${activeClients} clientes ativos`}
+                            icon={BarChart3}
+                            variant="primary"
+                        />
+                    </Link>
+                    <Link href="/finance">
+                        <StatCard
+                            title="Receitas"
+                            value={formatCurrency(totalRevenue)}
+                            subtitle={pendingRevenue > 0 ? `${formatCurrency(pendingRevenue)} pendente` : "Tudo recebido"}
+                            icon={ArrowUpRight}
+                            variant="success"
+                        />
+                    </Link>
+                    <Link href="/finance">
+                        <StatCard
+                            title="Despesas"
+                            value={formatCurrency(totalExpenses)}
+                            subtitle={pendingExpenses > 0 ? `${formatCurrency(pendingExpenses)} a pagar` : "Tudo pago"}
+                            icon={ArrowDownRight}
+                            variant="danger"
+                        />
+                    </Link>
                 </motion.div>
 
                 {/* Charts Row */}
@@ -296,53 +354,73 @@ export default function DashboardPage() {
                         </h3>
 
                         <div className="space-y-3">
-                            <div className="flex items-center justify-between p-3 rounded-xl bg-background-tertiary">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 rounded-lg bg-success/15 text-success">
-                                        <DollarSign className="w-4 h-4" />
+                            <Link href="/finance" className="block">
+                                <div className="flex items-center justify-between p-3 rounded-xl bg-background-tertiary hover:bg-background-secondary transition-colors cursor-pointer">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 rounded-lg bg-success/15 text-success">
+                                            <DollarSign className="w-4 h-4" />
+                                        </div>
+                                        <span className="text-text-secondary text-sm">A Receber</span>
                                     </div>
-                                    <span className="text-text-secondary text-sm">A Receber</span>
+                                    <span className="font-semibold text-success">{formatCurrency(pendingRevenue)}</span>
                                 </div>
-                                <span className="font-semibold text-success">{formatCurrency(pendingRevenue)}</span>
-                            </div>
+                            </Link>
 
-                            <div className="flex items-center justify-between p-3 rounded-xl bg-background-tertiary">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 rounded-lg bg-danger/15 text-danger">
-                                        <DollarSign className="w-4 h-4" />
+                            <Link href="/finance" className="block">
+                                <div className="flex items-center justify-between p-3 rounded-xl bg-background-tertiary hover:bg-background-secondary transition-colors cursor-pointer">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 rounded-lg bg-danger/15 text-danger">
+                                            <DollarSign className="w-4 h-4" />
+                                        </div>
+                                        <span className="text-text-secondary text-sm">A Pagar</span>
                                     </div>
-                                    <span className="text-text-secondary text-sm">A Pagar</span>
+                                    <span className="font-semibold text-danger">{formatCurrency(pendingExpenses)}</span>
                                 </div>
-                                <span className="font-semibold text-danger">{formatCurrency(pendingExpenses)}</span>
-                            </div>
+                            </Link>
 
-                            <div className="flex items-center justify-between p-3 rounded-xl bg-background-tertiary">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 rounded-lg bg-warning/15 text-warning">
-                                        <Globe className="w-4 h-4" />
+                            <Link href="/domains" className="block">
+                                <div className="flex items-center justify-between p-3 rounded-xl bg-background-tertiary hover:bg-background-secondary transition-colors cursor-pointer">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 rounded-lg bg-warning/15 text-warning">
+                                            <Globe className="w-4 h-4" />
+                                        </div>
+                                        <span className="text-text-secondary text-sm">Domínios Vencendo</span>
                                     </div>
-                                    <span className="text-text-secondary text-sm">Domínios Vencendo</span>
+                                    <span className="font-semibold text-warning">{expiringDomains}</span>
                                 </div>
-                                <span className="font-semibold text-warning">{expiringDomains}</span>
-                            </div>
+                            </Link>
 
-                            <div className="flex items-center justify-between p-3 rounded-xl bg-background-tertiary">
-                                <div className="flex items-center gap-3">
-                                    <div className={cn(
-                                        "p-2 rounded-lg",
-                                        overdueClients > 0 ? "bg-danger/15 text-danger" : "bg-success/15 text-success"
+                            <Link href="/clients" className="block">
+                                <div className="flex items-center justify-between p-3 rounded-xl bg-background-tertiary hover:bg-background-secondary transition-colors cursor-pointer">
+                                    <div className="flex items-center gap-3">
+                                        <div className={cn(
+                                            "p-2 rounded-lg",
+                                            overdueClients > 0 ? "bg-danger/15 text-danger" : "bg-success/15 text-success"
+                                        )}>
+                                            <Users className="w-4 h-4" />
+                                        </div>
+                                        <span className="text-text-secondary text-sm">Inadimplentes</span>
+                                    </div>
+                                    <span className={cn(
+                                        "font-semibold",
+                                        overdueClients > 0 ? "text-danger" : "text-success"
                                     )}>
-                                        <Users className="w-4 h-4" />
-                                    </div>
-                                    <span className="text-text-secondary text-sm">Inadimplentes</span>
+                                        {overdueClients}
+                                    </span>
                                 </div>
-                                <span className={cn(
-                                    "font-semibold",
-                                    overdueClients > 0 ? "text-danger" : "text-success"
-                                )}>
-                                    {overdueClients}
-                                </span>
-                            </div>
+                            </Link>
+
+                            <Link href="/projects" className="block">
+                                <div className="flex items-center justify-between p-3 rounded-xl bg-background-tertiary hover:bg-background-secondary transition-colors cursor-pointer">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 rounded-lg bg-primary/15 text-primary">
+                                            <FolderKanban className="w-4 h-4" />
+                                        </div>
+                                        <span className="text-text-secondary text-sm">Projetos Ativos</span>
+                                    </div>
+                                    <span className="font-semibold text-primary">{activeProjects}</span>
+                                </div>
+                            </Link>
                         </div>
                     </div>
                 </motion.div>
@@ -357,49 +435,53 @@ export default function DashboardPage() {
 
                         <div className="grid md:grid-cols-2 gap-4">
                             {expiringDomains > 0 && (
-                                <motion.div
-                                    initial={{ opacity: 0, x: -20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    className="p-4 rounded-xl bg-warning/10 border border-warning/30"
-                                >
-                                    <div className="flex items-start gap-3">
-                                        <div className="p-2.5 rounded-xl bg-warning/20 text-warning">
-                                            <Globe className="w-5 h-5" />
+                                <Link href="/domains">
+                                    <motion.div
+                                        initial={{ opacity: 0, x: -20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        className="p-4 rounded-xl bg-warning/10 border border-warning/30 hover:bg-warning/15 transition-colors cursor-pointer"
+                                    >
+                                        <div className="flex items-start gap-3">
+                                            <div className="p-2.5 rounded-xl bg-warning/20 text-warning">
+                                                <Globe className="w-5 h-5" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <h4 className="font-semibold text-warning">Domínios Expirando</h4>
+                                                <p className="text-sm text-warning/80 mt-1">
+                                                    {expiringDomains} domínio(s) vencem nos próximos 30 dias
+                                                </p>
+                                                <span className="text-sm text-warning underline mt-2 inline-block">
+                                                    Ver domínios →
+                                                </span>
+                                            </div>
                                         </div>
-                                        <div className="flex-1">
-                                            <h4 className="font-semibold text-warning">Domínios Expirando</h4>
-                                            <p className="text-sm text-warning/80 mt-1">
-                                                {expiringDomains} domínio(s) vencem nos próximos 30 dias
-                                            </p>
-                                            <a href="/domains" className="text-sm text-warning underline mt-2 inline-block">
-                                                Ver domínios →
-                                            </a>
-                                        </div>
-                                    </div>
-                                </motion.div>
+                                    </motion.div>
+                                </Link>
                             )}
 
                             {overdueClients > 0 && (
-                                <motion.div
-                                    initial={{ opacity: 0, x: 20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    className="p-4 rounded-xl bg-danger/10 border border-danger/30"
-                                >
-                                    <div className="flex items-start gap-3">
-                                        <div className="p-2.5 rounded-xl bg-danger/20 text-danger">
-                                            <AlertCircle className="w-5 h-5" />
+                                <Link href="/clients">
+                                    <motion.div
+                                        initial={{ opacity: 0, x: 20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        className="p-4 rounded-xl bg-danger/10 border border-danger/30 hover:bg-danger/15 transition-colors cursor-pointer"
+                                    >
+                                        <div className="flex items-start gap-3">
+                                            <div className="p-2.5 rounded-xl bg-danger/20 text-danger">
+                                                <AlertCircle className="w-5 h-5" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <h4 className="font-semibold text-danger">Clientes Inadimplentes</h4>
+                                                <p className="text-sm text-danger/80 mt-1">
+                                                    {overdueClients} cliente(s) com pagamento atrasado
+                                                </p>
+                                                <span className="text-sm text-danger underline mt-2 inline-block">
+                                                    Ver clientes →
+                                                </span>
+                                            </div>
                                         </div>
-                                        <div className="flex-1">
-                                            <h4 className="font-semibold text-danger">Clientes Inadimplentes</h4>
-                                            <p className="text-sm text-danger/80 mt-1">
-                                                {overdueClients} cliente(s) com pagamento atrasado
-                                            </p>
-                                            <a href="/clients" className="text-sm text-danger underline mt-2 inline-block">
-                                                Ver clientes →
-                                            </a>
-                                        </div>
-                                    </div>
-                                </motion.div>
+                                    </motion.div>
+                                </Link>
                             )}
                         </div>
                     </motion.div>
@@ -415,10 +497,15 @@ export default function DashboardPage() {
                     <div className="grid md:grid-cols-2 gap-4">
                         {/* Upcoming Revenues */}
                         <div className="card-elevated p-4">
-                            <h4 className="text-sm font-medium text-text-secondary mb-3 flex items-center gap-2">
-                                <ArrowUpRight className="w-4 h-4 text-success" />
-                                A Receber
-                            </h4>
+                            <div className="flex items-center justify-between mb-3">
+                                <h4 className="text-sm font-medium text-text-secondary flex items-center gap-2">
+                                    <ArrowUpRight className="w-4 h-4 text-success" />
+                                    A Receber
+                                </h4>
+                                <Link href="/finance" className="text-xs text-primary hover:underline">
+                                    Ver tudo
+                                </Link>
+                            </div>
                             <div className="space-y-2">
                                 {revenues
                                     .filter((r) => !r.is_paid)
@@ -437,10 +524,15 @@ export default function DashboardPage() {
 
                         {/* Upcoming Expenses */}
                         <div className="card-elevated p-4">
-                            <h4 className="text-sm font-medium text-text-secondary mb-3 flex items-center gap-2">
-                                <ArrowDownRight className="w-4 h-4 text-danger" />
-                                A Pagar
-                            </h4>
+                            <div className="flex items-center justify-between mb-3">
+                                <h4 className="text-sm font-medium text-text-secondary flex items-center gap-2">
+                                    <ArrowDownRight className="w-4 h-4 text-danger" />
+                                    A Pagar
+                                </h4>
+                                <Link href="/finance" className="text-xs text-primary hover:underline">
+                                    Ver tudo
+                                </Link>
+                            </div>
                             <div className="space-y-2">
                                 {expenses
                                     .filter((e) => !e.is_paid)
@@ -462,4 +554,3 @@ export default function DashboardPage() {
         </AppShell>
     );
 }
-

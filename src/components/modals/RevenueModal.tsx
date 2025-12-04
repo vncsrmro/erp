@@ -1,19 +1,18 @@
-"use client";
-
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { DollarSign, FileText, Calendar, User, TrendingUp, Repeat, Briefcase } from "lucide-react";
+import { DollarSign, FileText, Calendar, User, TrendingUp, Repeat, Briefcase, Trash2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Input, Select } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { getSupabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
-import type { RevenueInsert, Client } from "@/lib/database.types";
+import type { RevenueInsert, Client, Revenue } from "@/lib/database.types";
 
 interface RevenueModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSuccess?: () => void;
+    initialData?: Revenue | null;
 }
 
 const typeOptions = [
@@ -22,7 +21,7 @@ const typeOptions = [
     { id: "project", label: "Projeto", description: "Valor de projeto", icon: Briefcase },
 ];
 
-export function RevenueModal({ isOpen, onClose, onSuccess }: RevenueModalProps) {
+export function RevenueModal({ isOpen, onClose, onSuccess, initialData }: RevenueModalProps) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [clients, setClients] = useState<Client[]>([]);
@@ -41,6 +40,26 @@ export function RevenueModal({ isOpen, onClose, onSuccess }: RevenueModalProps) 
         }
     }, [isOpen]);
 
+    useEffect(() => {
+        if (initialData) {
+            setFormData({
+                clientId: initialData.client_id || "",
+                description: initialData.description,
+                amount: initialData.amount.toString(),
+                dueDate: new Date(initialData.due_date).toISOString().split("T")[0],
+                type: initialData.type,
+            });
+        } else {
+            setFormData({
+                clientId: "",
+                description: "",
+                amount: "",
+                dueDate: new Date().toISOString().split("T")[0],
+                type: "mrr",
+            });
+        }
+    }, [initialData, isOpen]);
+
     const fetchClients = async () => {
         const supabase = getSupabase();
         const { data } = await supabase
@@ -48,6 +67,29 @@ export function RevenueModal({ isOpen, onClose, onSuccess }: RevenueModalProps) 
             .select("*")
             .order("name");
         if (data) setClients(data);
+    };
+
+    const handleDelete = async () => {
+        if (!initialData) return;
+        if (!confirm("Tem certeza que deseja excluir esta receita?")) return;
+
+        setLoading(true);
+        try {
+            const supabase = getSupabase();
+            const { error } = await supabase
+                .from("revenues")
+                .delete()
+                .eq("id", initialData.id);
+
+            if (error) throw error;
+
+            onSuccess?.();
+            onClose();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Erro ao excluir receita");
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -70,24 +112,28 @@ export function RevenueModal({ isOpen, onClose, onSuccess }: RevenueModalProps) 
                 description: formData.description,
                 amount: parseFloat(formData.amount),
                 due_date: new Date(formData.dueDate).toISOString(),
-                is_paid: false,
+                is_paid: initialData ? initialData.is_paid : false,
                 type: formData.type as "mrr" | "one-time" | "project",
-                paid_date: null,
+                paid_date: initialData ? initialData.paid_date : null,
             };
 
-            const { error: insertError } = await supabase
-                .from("revenues")
-                .insert(revenueData as unknown as Record<string, unknown>);
+            let resultError;
 
-            if (insertError) throw insertError;
+            if (initialData) {
+                const { error } = await supabase
+                    .from("revenues")
+                    .update(revenueData as unknown as Record<string, unknown>)
+                    .eq("id", initialData.id);
+                resultError = error;
+            } else {
+                const { error } = await supabase
+                    .from("revenues")
+                    .insert(revenueData as unknown as Record<string, unknown>);
+                resultError = error;
+            }
 
-            setFormData({
-                clientId: "",
-                description: "",
-                amount: "",
-                dueDate: new Date().toISOString().split("T")[0],
-                type: "mrr",
-            });
+            if (resultError) throw resultError;
+
             onSuccess?.();
             onClose();
         } catch (err) {
@@ -106,8 +152,8 @@ export function RevenueModal({ isOpen, onClose, onSuccess }: RevenueModalProps) 
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title="Nova Receita"
-            subtitle="Registre uma nova conta a receber"
+            title={initialData ? "Editar Receita" : "Nova Receita"}
+            subtitle={initialData ? "Atualize os dados da receita" : "Registre uma nova conta a receber"}
         >
             <form onSubmit={handleSubmit} className="space-y-5">
                 {error && (
@@ -200,24 +246,38 @@ export function RevenueModal({ isOpen, onClose, onSuccess }: RevenueModalProps) 
                 )}
 
                 <div className="flex gap-3 pt-2">
-                    <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={onClose}
-                        fullWidth
-                        disabled={loading}
-                    >
-                        Cancelar
-                    </Button>
-                    <Button
-                        type="submit"
-                        variant="primary"
-                        fullWidth
-                        loading={loading}
-                        className="bg-success hover:bg-success/90"
-                    >
-                        Salvar Receita
-                    </Button>
+                    {initialData && (
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={handleDelete}
+                            loading={loading}
+                            className="text-danger hover:bg-danger/10 border-danger/20"
+                            icon={Trash2}
+                        >
+                            Excluir
+                        </Button>
+                    )}
+                    <div className="flex-1 flex gap-3">
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={onClose}
+                            fullWidth
+                            disabled={loading}
+                        >
+                            Cancelar
+                        </Button>
+                        <Button
+                            type="submit"
+                            variant="primary"
+                            fullWidth
+                            loading={loading}
+                            className="bg-success hover:bg-success/90"
+                        >
+                            {initialData ? "Salvar Alterações" : "Salvar Receita"}
+                        </Button>
+                    </div>
                 </div>
             </form>
         </Modal>
