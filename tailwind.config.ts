@@ -18,10 +18,10 @@ const config: Config = {
                     card: "#16161e",
                 },
                 primary: {
-                    DEFAULT: "#6366f1", // Indigo vibrante
-                    light: "#818cf8",
-                    dark: "#4f46e5",
-                    glow: "rgba(99, 102, 241, 0.3)",
+                    DEFAULT: "#10b981", // InovaSys Green (Emerald)
+                    light: "#34d399",
+                    dark: "#059669",
+                    glow: "rgba(16, 185, 129, 0.3)",
                 },
                 accent: {
                     DEFAULT: "#22d3ee", // Cyan neon

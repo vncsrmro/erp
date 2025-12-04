@@ -60,76 +60,14 @@ export default function DashboardPage() {
             setRevenues(revenuesRes.data || []);
             setDomains(domainsRes.data || []);
             setProjects(projectsRes.data || []);
-        } catch {
-            // Fallback to mock data
-            setClients(mockClients.map(c => ({
-                id: c.id,
-                user_id: "mock",
-                name: c.name,
-                cnpj: null,
-                responsible: null,
-                email: c.email,
-                phone: c.phone || null,
-                plan: c.plan,
-                plan_value: c.planValue,
-                billing_day: 10,
-                status: c.status,
-                payment_status: c.paymentStatus,
-                project_status: c.projectStatus,
-                tags: c.tags,
-                created_at: new Date().toISOString(),
-                last_payment: c.lastPayment?.toISOString() || null,
-                next_payment: c.nextPayment?.toISOString() || null,
-            })));
-            setExpenses(mockExpenses.map(e => ({
-                id: e.id,
-                user_id: "mock",
-                category: e.category,
-                description: e.description,
-                amount: e.amount,
-                due_date: e.dueDate.toISOString(),
-                paid_date: e.paidDate?.toISOString() || null,
-                is_paid: e.isPaid,
-                is_recurring: e.isRecurring,
-                recurrence_type: null,
-                created_at: new Date().toISOString(),
-            })));
-            setRevenues(mockRevenues.map(r => ({
-                id: r.id,
-                user_id: "mock",
-                client_id: r.clientId || null,
-                description: r.description,
-                amount: r.amount,
-                due_date: r.dueDate.toISOString(),
-                paid_date: r.paidDate?.toISOString() || null,
-                is_paid: r.isPaid,
-                type: r.type,
-                created_at: new Date().toISOString(),
-            })));
-            setDomains(mockDomains.map(d => ({
-                id: d.id,
-                user_id: "mock",
-                client_id: d.clientId,
-                domain: d.domain,
-                registrar: d.registrar,
-                expiration_date: d.expirationDate.toISOString(),
-                auto_renew: d.autoRenew,
-                ssl_expiration: d.sslExpiration?.toISOString() || null,
-                notes: null,
-                created_at: new Date().toISOString(),
-            })));
-            setProjects(mockProjects.map(p => ({
-                id: p.id,
-                user_id: "mock",
-                client_id: p.clientId,
-                title: p.title,
-                description: p.description,
-                status: p.status,
-                priority: p.priority,
-                due_date: p.dueDate.toISOString(),
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-            })));
+        } catch (error) {
+            console.error(error);
+            // Ensure empty state on error instead of mock data
+            setClients([]);
+            setExpenses([]);
+            setRevenues([]);
+            setDomains([]);
+            setProjects([]);
         } finally {
             setLoading(false);
             setRefreshing(false);
