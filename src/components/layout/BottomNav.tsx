@@ -6,18 +6,18 @@ import { usePathname } from "next/navigation";
 import {
     LayoutDashboard,
     Users,
+    FolderKanban,
     Wallet,
-    Globe,
-    Shield
+    Settings
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
     { href: "/", icon: LayoutDashboard, label: "Dashboard" },
     { href: "/clients", icon: Users, label: "Clientes" },
+    { href: "/projects", icon: FolderKanban, label: "Projetos" },
     { href: "/finance", icon: Wallet, label: "Financeiro" },
-    { href: "/domains", icon: Globe, label: "Domínios" },
-    { href: "/vault", icon: Shield, label: "Vault" },
+    { href: "/vault", icon: Settings, label: "Config" },
 ];
 
 export function BottomNav() {

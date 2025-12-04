@@ -66,6 +66,7 @@ export default function DashboardPage() {
                 phone: c.phone || null,
                 plan: c.plan,
                 plan_value: c.planValue,
+                billing_day: 10,
                 status: c.status,
                 payment_status: c.paymentStatus,
                 project_status: c.projectStatus,

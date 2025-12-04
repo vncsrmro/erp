@@ -20,6 +20,7 @@ export interface Database {
                     phone: string | null;
                     plan: string;
                     plan_value: number;
+                    billing_day: number;
                     status: 'active' | 'trial' | 'overdue' | 'inactive';
                     payment_status: 'paid' | 'pending' | 'overdue';
                     project_status: 'active' | 'paused' | 'completed';
@@ -94,6 +95,22 @@ export interface Database {
                 Insert: Record<string, unknown>;
                 Update: Record<string, unknown>;
             };
+            projects: {
+                Row: {
+                    id: string;
+                    user_id: string;
+                    client_id: string;
+                    title: string;
+                    description: string | null;
+                    status: 'backlog' | 'in_progress' | 'review' | 'done';
+                    priority: 'low' | 'medium' | 'high';
+                    due_date: string | null;
+                    created_at: string;
+                    updated_at: string;
+                };
+                Insert: Record<string, unknown>;
+                Update: Record<string, unknown>;
+            };
         };
     };
 }
@@ -104,6 +121,7 @@ export type Domain = Database['public']['Tables']['domains']['Row'];
 export type Expense = Database['public']['Tables']['expenses']['Row'];
 export type Revenue = Database['public']['Tables']['revenues']['Row'];
 export type VaultCredential = Database['public']['Tables']['vault_credentials']['Row'];
+export type Project = Database['public']['Tables']['projects']['Row'];
 
 // Simple insert types for modals
 export type ClientInsert = Omit<Client, 'id' | 'created_at'>;
@@ -111,3 +129,4 @@ export type DomainInsert = Omit<Domain, 'id' | 'created_at'>;
 export type ExpenseInsert = Omit<Expense, 'id' | 'created_at'>;
 export type RevenueInsert = Omit<Revenue, 'id' | 'created_at'>;
 export type VaultCredentialInsert = Omit<VaultCredential, 'id' | 'created_at' | 'updated_at'>;
+export type ProjectInsert = Omit<Project, 'id' | 'created_at' | 'updated_at'>;

@@ -10,6 +10,7 @@ interface AppShellProps {
     subtitle?: string;
     showSearch?: boolean;
     hideBottomNav?: boolean;
+    headerAction?: ReactNode;
 }
 
 export function AppShell({
@@ -18,10 +19,11 @@ export function AppShell({
     subtitle,
     showSearch = true,
     hideBottomNav = false,
+    headerAction,
 }: AppShellProps) {
     return (
         <div className="min-h-screen bg-background">
-            <Header title={title} subtitle={subtitle} showSearch={showSearch} />
+            <Header title={title} subtitle={subtitle} showSearch={showSearch} headerAction={headerAction} />
 
             <main className="pb-24 px-4 max-w-7xl mx-auto">
                 {children}
@@ -31,3 +33,4 @@ export function AppShell({
         </div>
     );
 }
+

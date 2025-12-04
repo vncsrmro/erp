@@ -26,6 +26,7 @@ export function ClientModal({ isOpen, onClose, onSuccess }: ClientModalProps) {
         phone: "",
         planName: "",
         planValue: "",
+        billingDay: "10",
         tags: "",
     });
 
@@ -72,6 +73,8 @@ export function ClientModal({ isOpen, onClose, onSuccess }: ClientModalProps) {
 
             const planValue = parseFloat(formData.planValue.replace(/[^\d.,]/g, "").replace(",", ".")) || 0;
 
+            const billingDay = parseInt(formData.billingDay) || 10;
+
             const clientData: ClientInsert = {
                 user_id: user.id,
                 name: formData.name,
@@ -81,6 +84,7 @@ export function ClientModal({ isOpen, onClose, onSuccess }: ClientModalProps) {
                 phone: formData.phone.replace(/\D/g, "") || null,
                 plan: formData.planName || "Personalizado",
                 plan_value: planValue,
+                billing_day: billingDay,
                 status: "active",
                 payment_status: "pending",
                 project_status: "active",
@@ -104,6 +108,7 @@ export function ClientModal({ isOpen, onClose, onSuccess }: ClientModalProps) {
                 phone: "",
                 planName: "",
                 planValue: "",
+                billingDay: "10",
                 tags: "",
             });
             onSuccess?.();
@@ -221,10 +226,10 @@ export function ClientModal({ isOpen, onClose, onSuccess }: ClientModalProps) {
                         Plano
                     </h3>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <Input
                             label="Nome do Plano"
-                            placeholder="Ex: Starter, Professional, Personalizado"
+                            placeholder="Ex: Starter, Personalizado"
                             value={formData.planName}
                             onChange={handleChange("planName")}
                         />
@@ -236,6 +241,16 @@ export function ClientModal({ isOpen, onClose, onSuccess }: ClientModalProps) {
                             value={formData.planValue}
                             onChange={handleChange("planValue")}
                             required
+                        />
+
+                        <Input
+                            label="Dia Vencimento"
+                            placeholder="10"
+                            type="number"
+                            min="1"
+                            max="31"
+                            value={formData.billingDay}
+                            onChange={handleChange("billingDay")}
                         />
                     </div>
                 </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { ReactNode } from "react";
 import { motion } from "framer-motion";
 import { Bell, Search, Menu } from "lucide-react";
 import { IconButton } from "@/components/ui/Button";
@@ -9,9 +10,10 @@ interface HeaderProps {
     subtitle?: string;
     showSearch?: boolean;
     onMenuClick?: () => void;
+    headerAction?: ReactNode;
 }
 
-export function Header({ title, subtitle, showSearch = true, onMenuClick }: HeaderProps) {
+export function Header({ title, subtitle, showSearch = true, onMenuClick, headerAction }: HeaderProps) {
     return (
         <motion.header
             initial={{ opacity: 0, y: -20 }}
@@ -40,6 +42,7 @@ export function Header({ title, subtitle, showSearch = true, onMenuClick }: Head
                 </div>
 
                 <div className="flex items-center gap-2">
+                    {headerAction}
                     {showSearch && (
                         <IconButton
                             icon={Search}
@@ -63,3 +66,4 @@ export function Header({ title, subtitle, showSearch = true, onMenuClick }: Head
         </motion.header>
     );
 }
+

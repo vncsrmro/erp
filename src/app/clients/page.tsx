@@ -11,22 +11,25 @@ import {
     User,
     MessageCircle,
     Building,
-    UserCircle
+    UserCircle,
+    Calendar,
+    AlertCircle
 } from "lucide-react";
 import { AppShell } from "@/components/layout";
 import { Button, Input } from "@/components/ui";
-import { ClientModal } from "@/components/modals";
+import { ClientModal, ClientDetailModal } from "@/components/modals";
 import { getSupabase } from "@/lib/supabase";
 import { mockClients } from "@/lib/mock-data";
 import { formatCurrency, cn } from "@/lib/utils";
 import type { Client } from "@/lib/database.types";
 
-type FilterStatus = "all" | "active" | "trial" | "overdue" | "inactive";
+type FilterStatus = "all" | "active" | "trial" | "overdue" | "inactive" | "due-soon";
 
 export default function ClientsPage() {
     const [searchQuery, setSearchQuery] = useState("");
     const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedClient, setSelectedClient] = useState<Client | null>(null);
     const [clients, setClients] = useState<Client[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -52,6 +55,7 @@ export default function ClientsPage() {
                 phone: c.phone || null,
                 plan: c.plan,
                 plan_value: c.planValue,
+                billing_day: 10,
                 status: c.status,
                 payment_status: c.paymentStatus,
                 project_status: c.projectStatus,
@@ -69,6 +73,24 @@ export default function ClientsPage() {
         fetchClients();
     }, [fetchClients]);
 
+    const getDaysUntilDue = (billingDay: number) => {
+        const today = new Date();
+        const currentDay = today.getDate();
+        const currentMonth = today.getMonth();
+        const currentYear = today.getFullYear();
+
+        let dueDate: Date;
+        if (currentDay <= billingDay) {
+            dueDate = new Date(currentYear, currentMonth, billingDay);
+        } else {
+            dueDate = new Date(currentYear, currentMonth + 1, billingDay);
+        }
+
+        today.setHours(0, 0, 0, 0);
+        const diffTime = dueDate.getTime() - today.getTime();
+        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    };
+
     const filteredClients = clients.filter((client) => {
         const searchLower = searchQuery.toLowerCase();
         const matchesSearch =
@@ -76,16 +98,33 @@ export default function ClientsPage() {
             client.email.toLowerCase().includes(searchLower) ||
             client.cnpj?.toLowerCase().includes(searchLower) ||
             client.responsible?.toLowerCase().includes(searchLower);
-        const matchesFilter =
-            filterStatus === "all" || client.status === filterStatus;
+
+        const daysUntilDue = getDaysUntilDue(client.billing_day || 10);
+
+        let matchesFilter = false;
+        switch (filterStatus) {
+            case "all":
+                matchesFilter = true;
+                break;
+            case "due-soon":
+                matchesFilter = daysUntilDue <= 7 && client.status === "active";
+                break;
+            case "overdue":
+                matchesFilter = client.payment_status === "overdue";
+                break;
+            default:
+                matchesFilter = client.status === filterStatus;
+        }
+
         return matchesSearch && matchesFilter;
     });
 
-    const statusFilters: { id: FilterStatus; label: string }[] = [
+    const statusFilters: { id: FilterStatus; label: string; count?: number }[] = [
         { id: "all", label: "Todos" },
         { id: "active", label: "Ativos" },
+        { id: "due-soon", label: "Vence em 7 dias", count: clients.filter(c => getDaysUntilDue(c.billing_day || 10) <= 7 && c.status === "active").length },
+        { id: "overdue", label: "Inadimplentes", count: clients.filter(c => c.payment_status === "overdue").length },
         { id: "trial", label: "Trial" },
-        { id: "overdue", label: "Inadimplentes" },
     ];
 
     const getStatusBadge = (status: string, paymentStatus: string) => {
@@ -106,11 +145,13 @@ export default function ClientsPage() {
 
     const getWhatsAppLink = (phone: string | null) => {
         if (!phone) return null;
-        // Remove all non-digits
         const cleanPhone = phone.replace(/\D/g, "");
-        // Add Brazil country code if not present
         const fullPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
         return `https://wa.me/${fullPhone}`;
+    };
+
+    const handleClientClick = (client: Client) => {
+        setSelectedClient(client);
     };
 
     return (
@@ -139,13 +180,25 @@ export default function ClientsPage() {
                                 key={filter.id}
                                 onClick={() => setFilterStatus(filter.id)}
                                 className={cn(
-                                    "px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all",
+                                    "px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all flex items-center gap-2",
                                     filterStatus === filter.id
                                         ? "bg-primary text-white shadow-glow"
                                         : "bg-background-secondary text-text-secondary hover:text-text-primary"
                                 )}
                             >
                                 {filter.label}
+                                {filter.count !== undefined && filter.count > 0 && (
+                                    <span className={cn(
+                                        "px-1.5 py-0.5 text-xs rounded-full",
+                                        filterStatus === filter.id
+                                            ? "bg-white/20 text-white"
+                                            : filter.id === "overdue"
+                                                ? "bg-danger/20 text-danger"
+                                                : "bg-warning/20 text-warning"
+                                    )}>
+                                        {filter.count}
+                                    </span>
+                                )}
                             </button>
                         ))}
                     </div>
@@ -155,6 +208,7 @@ export default function ClientsPage() {
                         {filteredClients.map((client, index) => {
                             const badge = getStatusBadge(client.status, client.payment_status);
                             const whatsappLink = getWhatsAppLink(client.phone);
+                            const daysUntilDue = getDaysUntilDue(client.billing_day || 10);
 
                             return (
                                 <motion.div
@@ -162,7 +216,9 @@ export default function ClientsPage() {
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: index * 0.05 }}
-                                    className="card-elevated p-4"
+                                    whileHover={{ scale: 1.01 }}
+                                    onClick={() => handleClientClick(client)}
+                                    className="card-elevated p-4 cursor-pointer"
                                 >
                                     <div className="flex items-start gap-4">
                                         {/* Avatar */}
@@ -213,13 +269,25 @@ export default function ClientsPage() {
                                                 )}
                                             </div>
 
-                                            {/* Plan & Value */}
-                                            <div className="flex items-center gap-3 mt-2">
+                                            {/* Plan & Value & Due */}
+                                            <div className="flex items-center gap-3 mt-2 flex-wrap">
                                                 <span className="text-xs text-text-secondary">
                                                     {client.plan}
                                                 </span>
                                                 <span className="text-xs font-semibold text-primary">
                                                     {formatCurrency(client.plan_value)}/mês
+                                                </span>
+                                                <span className={cn(
+                                                    "text-xs flex items-center gap-1",
+                                                    daysUntilDue <= 3 ? "text-danger" : daysUntilDue <= 7 ? "text-warning" : "text-text-muted"
+                                                )}>
+                                                    <Calendar className="w-3 h-3" />
+                                                    Vence dia {client.billing_day || 10}
+                                                    {daysUntilDue <= 7 && (
+                                                        <span className="font-medium">
+                                                            ({daysUntilDue === 0 ? "hoje" : daysUntilDue < 0 ? "atrasado" : `${daysUntilDue}d`})
+                                                        </span>
+                                                    )}
                                                 </span>
                                             </div>
                                         </div>
@@ -234,6 +302,7 @@ export default function ClientsPage() {
                                                     href={whatsappLink}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
+                                                    onClick={(e) => e.stopPropagation()}
                                                     className="p-2.5 rounded-xl bg-success/15 text-success hover:bg-success/25 transition-colors"
                                                     title="Enviar mensagem no WhatsApp"
                                                 >
@@ -279,8 +348,14 @@ export default function ClientsPage() {
                 onClose={() => setIsModalOpen(false)}
                 onSuccess={fetchClients}
             />
+
+            <ClientDetailModal
+                isOpen={!!selectedClient}
+                onClose={() => setSelectedClient(null)}
+                client={selectedClient}
+                onUpdate={fetchClients}
+                onDelete={fetchClients}
+            />
         </>
     );
 }
-
-

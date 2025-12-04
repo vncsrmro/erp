@@ -79,12 +79,27 @@ CREATE TABLE IF NOT EXISTS vault_credentials (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Projects Table (Kanban)
+CREATE TABLE IF NOT EXISTS projects (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    description TEXT,
+    status TEXT NOT NULL DEFAULT 'backlog' CHECK (status IN ('backlog', 'in_progress', 'review', 'done')),
+    priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high')),
+    due_date TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Row Level Security (RLS) Policies
 ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE revenues ENABLE ROW LEVEL SECURITY;
 ALTER TABLE domains ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vault_credentials ENABLE ROW LEVEL SECURITY;
+ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
 
 -- Clients Policies
 CREATE POLICY "Users can view own clients" ON clients
@@ -136,12 +151,25 @@ CREATE POLICY "Users can update own credentials" ON vault_credentials
 CREATE POLICY "Users can delete own credentials" ON vault_credentials
     FOR DELETE USING (auth.uid() = user_id);
 
+-- Projects Policies
+CREATE POLICY "Users can view own projects" ON projects
+    FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own projects" ON projects
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own projects" ON projects
+    FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own projects" ON projects
+    FOR DELETE USING (auth.uid() = user_id);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_clients_user_id ON clients(user_id);
 CREATE INDEX IF NOT EXISTS idx_expenses_user_id ON expenses(user_id);
 CREATE INDEX IF NOT EXISTS idx_revenues_user_id ON revenues(user_id);
 CREATE INDEX IF NOT EXISTS idx_domains_user_id ON domains(user_id);
 CREATE INDEX IF NOT EXISTS idx_vault_credentials_user_id ON vault_credentials(user_id);
+CREATE INDEX IF NOT EXISTS idx_projects_user_id ON projects(user_id);
+CREATE INDEX IF NOT EXISTS idx_projects_client_id ON projects(client_id);
+CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status);
 CREATE INDEX IF NOT EXISTS idx_domains_expiration ON domains(expiration_date);
 CREATE INDEX IF NOT EXISTS idx_expenses_due_date ON expenses(due_date);
 CREATE INDEX IF NOT EXISTS idx_revenues_due_date ON revenues(due_date);
