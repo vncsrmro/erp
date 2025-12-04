@@ -3,6 +3,8 @@
     "short_name": "InovaSys",
     "description": "Sistema de Gestão Integrada InovaSys",
     "start_url": "/",
+    "id": "/",
+    "scope": "/",
     "display": "standalone",
     "background_color": "#0A0A0A",
     "theme_color": "#0A0A0A",
