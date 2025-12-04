@@ -9,10 +9,53 @@ import {
     ResponsiveContainer,
     CartesianGrid
 } from "recharts";
-import { cashFlowData } from "@/lib/mock-data";
 import { formatCurrency } from "@/lib/utils";
+import { Expense, Revenue } from "@/lib/database.types";
+import { useMemo } from "react";
 
-export function CashFlowChart() {
+interface CashFlowChartProps {
+    expenses: Expense[];
+    revenues: Revenue[];
+}
+
+export function CashFlowChart({ expenses, revenues }: CashFlowChartProps) {
+    const data = useMemo(() => {
+        const today = new Date();
+        const last6Months = Array.from({ length: 6 }, (_, i) => {
+            const d = new Date(today.getFullYear(), today.getMonth() - 5 + i, 1);
+            return {
+                date: d,
+                month: d.toLocaleDateString('pt-BR', { month: 'short' }),
+                inflows: 0,
+                outflows: 0
+            };
+        });
+
+        revenues.forEach(r => {
+            const date = new Date(r.paid_date || r.due_date);
+            const monthData = last6Months.find(m =>
+                m.date.getMonth() === date.getMonth() &&
+                m.date.getFullYear() === date.getFullYear()
+            );
+            if (monthData && r.is_paid) {
+                monthData.inflows += r.amount;
+            }
+        });
+
+        expenses.forEach(e => {
+            const date = new Date(e.paid_date || e.due_date);
+            const monthData = last6Months.find(m =>
+                m.date.getMonth() === date.getMonth() &&
+                m.date.getFullYear() === date.getFullYear()
+            );
+            if (monthData && e.is_paid) {
+                monthData.outflows += e.amount;
+            }
+        });
+
+        return last6Months;
+    }, [expenses, revenues]);
+
     return (
         <div className="card-elevated p-5">
             <h3 className="text-lg font-semibold text-text-primary mb-4">
@@ -21,7 +64,7 @@ export function CashFlowChart() {
             <div className="h-[280px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                     <AreaChart
-                        data={cashFlowData}
+                        data={data}
                         margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
                     >
                         <defs>

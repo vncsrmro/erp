@@ -250,7 +250,7 @@ export function ClientDetailModal({
                     .from("domains")
                     .update({
                         domain: domainForm.domain,
-                        registrar: domainForm.registrar || null,
+                        registrar: domainForm.registrar || "Desconhecido",
                         expiration_date: domainForm.expiration_date,
                         auto_renew: domainForm.auto_renew,
                         notes: domainForm.notes || null,
@@ -264,11 +264,10 @@ export function ClientDetailModal({
                         user_id: user.id,
                         client_id: client.id,
                         domain: domainForm.domain,
-                        registrar: domainForm.registrar || null,
+                        registrar: domainForm.registrar || "Desconhecido",
                         expiration_date: domainForm.expiration_date,
                         auto_renew: domainForm.auto_renew,
                         notes: domainForm.notes || null,
-                        status: "active",
                     });
                 if (error) throw error;
             }

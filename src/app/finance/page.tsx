@@ -287,7 +287,7 @@ export default function FinancePage() {
                                 </div>
                             )}
 
-                            <CashFlowChart />
+                            <CashFlowChart expenses={expenses} revenues={revenues} />
                         </motion.div>
                     )}
 

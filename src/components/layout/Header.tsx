@@ -2,8 +2,10 @@
 
 import { ReactNode } from "react";
 import { motion } from "framer-motion";
-import { Bell, Search, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
 import { IconButton } from "@/components/ui/Button";
+import Image from "next/image";
+import Link from "next/link";
 
 interface HeaderProps {
     title: string;
@@ -31,36 +33,21 @@ export function Header({ title, subtitle, showSearch = true, onMenuClick, header
                             className="lg:hidden"
                         />
                     )}
-                    <div>
-                        <h1 className="text-lg md:text-xl font-bold text-text-primary">
-                            {title}
-                        </h1>
-                        {subtitle && (
-                            <p className="text-xs md:text-sm text-text-muted">{subtitle}</p>
-                        )}
-                    </div>
+                    <Link href="/" className="flex items-center gap-2 group">
+                        <div className="relative w-32 h-10 transition-transform group-hover:scale-105">
+                            <Image
+                                src="/logo.png"
+                                alt="InovaSys"
+                                fill
+                                className="object-contain object-left"
+                                priority
+                            />
+                        </div>
+                    </Link>
                 </div>
 
                 <div className="flex items-center gap-2">
                     {headerAction}
-                    {showSearch && (
-                        <IconButton
-                            icon={Search}
-                            variant="secondary"
-                            tooltip="Buscar"
-                        />
-                    )}
-                    <div className="relative">
-                        <IconButton
-                            icon={Bell}
-                            variant="secondary"
-                            tooltip="Notificações"
-                        />
-                        {/* Notification badge */}
-                        <span className="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center text-xs font-bold bg-danger text-white rounded-full">
-                            3
-                        </span>
-                    </div>
                 </div>
             </div>
         </motion.header>
