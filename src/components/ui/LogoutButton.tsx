@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 
 interface LogoutButtonProps {
     className?: string;
-    variant?: "default" | "ghost" | "outline" | "danger";
+    variant?: "primary" | "secondary" | "danger" | "ghost";
     showLabel?: boolean;
 }
 
