@@ -200,9 +200,9 @@ export default function ProjectsPage() {
                     </Button>
                 }
             >
-                <div className="py-4 overflow-x-auto">
+                <div className="py-4">
                     {/* Kanban Board */}
-                    <div className="flex gap-4 min-w-max pb-4">
+                    <div className="flex flex-col lg:flex-row gap-4 lg:overflow-x-auto pb-4">
                         {columns.map((column) => {
                             const columnProjects = getProjectsByStatus(column.id);
 
@@ -211,7 +211,7 @@ export default function ProjectsPage() {
                                     key={column.id}
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    className="w-72 flex-shrink-0"
+                                    className="w-full lg:w-72 flex-shrink-0"
                                 >
                                     {/* Column Header */}
                                     <div className="flex items-center justify-between mb-3">

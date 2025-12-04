@@ -2,10 +2,12 @@
 
 import { ReactNode } from "react";
 import { motion } from "framer-motion";
-import { Menu } from "lucide-react";
+import { Menu, LogOut } from "lucide-react";
 import { IconButton } from "@/components/ui/Button";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { getSupabase } from "@/lib/supabase";
 
 interface HeaderProps {
     title: string;
@@ -16,6 +18,14 @@ interface HeaderProps {
 }
 
 export function Header({ title, subtitle, showSearch = true, onMenuClick, headerAction }: HeaderProps) {
+    const router = useRouter();
+
+    const handleLogout = async () => {
+        const supabase = getSupabase();
+        await supabase.auth.signOut();
+        router.push("/login");
+    };
+
     return (
         <motion.header
             initial={{ opacity: 0, y: -20 }}
@@ -48,6 +58,13 @@ export function Header({ title, subtitle, showSearch = true, onMenuClick, header
 
                 <div className="flex items-center gap-2">
                     {headerAction}
+                    <IconButton
+                        icon={LogOut}
+                        variant="ghost"
+                        onClick={handleLogout}
+                        className="text-danger hover:bg-danger/10"
+                        tooltip="Sair"
+                    />
                 </div>
             </div>
         </motion.header>
