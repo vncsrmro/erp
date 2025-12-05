@@ -13,7 +13,10 @@ import {
     Lock,
     User,
     Server,
-    Check
+    Check,
+    Trash2,
+    Edit,
+    Tag
 } from "lucide-react";
 import { AppShell } from "@/components/layout";
 import { Button, Input } from "@/components/ui";
@@ -30,13 +33,14 @@ export default function VaultPage() {
     const [copiedId, setCopiedId] = useState<string | null>(null);
     const [credentials, setCredentials] = useState<VaultCredential[]>([]);
     const [loading, setLoading] = useState(true);
+    const [editingCredential, setEditingCredential] = useState<VaultCredential | null>(null);
 
     const fetchCredentials = useCallback(async () => {
         try {
             const supabase = getSupabase();
             const { data, error } = await supabase
                 .from("vault_credentials")
-                .select("*")
+                .select("*, clients(name)")
                 .order("created_at", { ascending: false });
 
             if (error) throw error;
@@ -76,9 +80,42 @@ export default function VaultPage() {
         }
     };
 
+    const handleDelete = async (id: string) => {
+        if (!confirm("Tem certeza que deseja excluir esta credencial?")) return;
+
+        try {
+            const supabase = getSupabase();
+            const { error } = await supabase
+                .from("vault_credentials")
+                .delete()
+                .eq("id", id);
+
+            if (error) throw error;
+            fetchCredentials();
+        } catch (error) {
+            console.error("Failed to delete:", error);
+            alert("Erro ao excluir credencial");
+        }
+    };
+
+    const handleEdit = (credential: VaultCredential) => {
+        setEditingCredential(credential);
+        setIsModalOpen(true);
+    };
+
     const getDecryptedValue = (encryptedValue: string) => {
         try {
-            return decrypt(encryptedValue);
+            const decrypted = decrypt(encryptedValue);
+            try {
+                // Try to parse as JSON for multi-field
+                const parsed = JSON.parse(decrypted);
+                if (Array.isArray(parsed) && parsed.every(item => 'key' in item && 'value' in item)) {
+                    return parsed;
+                }
+            } catch {
+                // Not JSON, return string
+            }
+            return decrypted;
         } catch {
             return "••••••••";
         }
@@ -178,44 +215,123 @@ export default function VaultPage() {
                                         </div>
                                     </div>
 
-                                    {/* Value Display */}
-                                    <div className="flex items-center gap-2 p-3 rounded-lg bg-background-tertiary">
-                                        <code className="flex-1 text-sm font-mono text-text-secondary truncate">
-                                            {isVisible
-                                                ? getDecryptedValue(credential.encrypted_value)
-                                                : "••••••••••••••••"}
-                                        </code>
-                                        <div className="flex items-center gap-1">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        {/* Client Tag */}
+                                        {/* @ts-ignore - Supabase join type inference issue */}
+                                        {credential.clients?.name && (
+                                            <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-background-tertiary text-xs text-text-secondary border border-border">
+                                                <Tag className="w-3 h-3" />
+                                                {/* @ts-ignore */}
+                                                <span>{credential.clients.name}</span>
+                                            </div>
+                                        )}
+
+                                        {/* Actions */}
+                                        <div className="flex items-center gap-1 ml-auto">
                                             <motion.button
                                                 whileHover={{ scale: 1.1 }}
                                                 whileTap={{ scale: 0.9 }}
-                                                onClick={() => toggleVisibility(credential.id)}
-                                                className="p-2 rounded-lg hover:bg-background-secondary text-text-muted hover:text-text-primary transition-colors"
+                                                onClick={() => handleEdit(credential)}
+                                                className="p-2 rounded-lg hover:bg-background-secondary text-text-muted hover:text-primary transition-colors"
+                                                title="Editar"
                                             >
-                                                {isVisible ? (
-                                                    <EyeOff className="w-4 h-4" />
-                                                ) : (
-                                                    <Eye className="w-4 h-4" />
-                                                )}
+                                                <Edit className="w-4 h-4" />
                                             </motion.button>
                                             <motion.button
                                                 whileHover={{ scale: 1.1 }}
                                                 whileTap={{ scale: 0.9 }}
-                                                onClick={() => copyToClipboard(credential.id, credential.encrypted_value)}
-                                                className={cn(
-                                                    "p-2 rounded-lg transition-colors",
-                                                    isCopied
-                                                        ? "bg-success/15 text-success"
-                                                        : "hover:bg-background-secondary text-text-muted hover:text-text-primary"
-                                                )}
+                                                onClick={() => handleDelete(credential.id)}
+                                                className="p-2 rounded-lg hover:bg-background-secondary text-text-muted hover:text-danger transition-colors"
+                                                title="Excluir"
                                             >
-                                                {isCopied ? (
-                                                    <Check className="w-4 h-4" />
-                                                ) : (
-                                                    <Copy className="w-4 h-4" />
-                                                )}
+                                                <Trash2 className="w-4 h-4" />
                                             </motion.button>
                                         </div>
+                                    </div>
+
+                                    {/* Value Display */}
+                                    <div className="p-3 rounded-lg bg-background-tertiary">
+                                        {(() => {
+                                            const value = isVisible ? getDecryptedValue(credential.encrypted_value) : null;
+
+                                            if (isVisible && Array.isArray(value)) {
+                                                // Multi-field display
+                                                return (
+                                                    <div className="space-y-2">
+                                                        {value.map((field: any, i: number) => (
+                                                            <div key={i} className="flex items-center justify-between gap-2 p-2 rounded bg-background-primary/50 border border-border/50">
+                                                                <span className="text-xs font-medium text-text-secondary min-w-[80px]">
+                                                                    {field.key}:
+                                                                </span>
+                                                                <code className="flex-1 text-sm font-mono text-text-primary truncate">
+                                                                    {field.value}
+                                                                </code>
+                                                                <motion.button
+                                                                    whileHover={{ scale: 1.1 }}
+                                                                    whileTap={{ scale: 0.9 }}
+                                                                    onClick={() => {
+                                                                        navigator.clipboard.writeText(field.value);
+                                                                        setCopiedId(`${credential.id}-${i}`);
+                                                                        setTimeout(() => setCopiedId(null), 2000);
+                                                                    }}
+                                                                    className={cn(
+                                                                        "p-1.5 rounded-md transition-colors",
+                                                                        copiedId === `${credential.id}-${i}`
+                                                                            ? "bg-success/15 text-success"
+                                                                            : "hover:bg-background-secondary text-text-muted hover:text-text-primary"
+                                                                    )}
+                                                                >
+                                                                    {copiedId === `${credential.id}-${i}` ? (
+                                                                        <Check className="w-3 h-3" />
+                                                                    ) : (
+                                                                        <Copy className="w-3 h-3" />
+                                                                    )}
+                                                                </motion.button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                );
+                                            }
+
+                                            return (
+                                                <div className="flex items-center gap-2">
+                                                    <code className="flex-1 text-sm font-mono text-text-secondary truncate">
+                                                        {isVisible ? (value as string) : "••••••••••••••••"}
+                                                    </code>
+                                                    <div className="flex items-center gap-1">
+                                                        <motion.button
+                                                            whileHover={{ scale: 1.1 }}
+                                                            whileTap={{ scale: 0.9 }}
+                                                            onClick={() => toggleVisibility(credential.id)}
+                                                            className="p-2 rounded-lg hover:bg-background-secondary text-text-muted hover:text-text-primary transition-colors"
+                                                        >
+                                                            {isVisible ? (
+                                                                <EyeOff className="w-4 h-4" />
+                                                            ) : (
+                                                                <Eye className="w-4 h-4" />
+                                                            )}
+                                                        </motion.button>
+                                                        <motion.button
+                                                            whileHover={{ scale: 1.1 }}
+                                                            whileTap={{ scale: 0.9 }}
+                                                            onClick={() => copyToClipboard(credential.id, credential.encrypted_value)}
+                                                            className={cn(
+                                                                "p-2 rounded-lg transition-colors",
+                                                                isCopied
+                                                                    ? "bg-success/15 text-success"
+                                                                    : "hover:bg-background-secondary text-text-muted hover:text-text-primary"
+                                                            )}
+                                                        >
+                                                            {isCopied ? (
+                                                                <Check className="w-4 h-4" />
+                                                            ) : (
+                                                                <Copy className="w-4 h-4" />
+                                                            )}
+                                                        </motion.button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
                                 </motion.div>
                             );
@@ -236,10 +352,13 @@ export default function VaultPage() {
 
             <CredentialModal
                 isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
+                onClose={() => {
+                    setIsModalOpen(false);
+                    setEditingCredential(null);
+                }}
                 onSuccess={fetchCredentials}
+                initialData={editingCredential}
             />
         </>
     );
 }
-

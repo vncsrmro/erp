@@ -2,19 +2,25 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Key, Lock, Server, Shield, FileText, Eye, EyeOff, User } from "lucide-react";
+import { Key, Lock, Server, Shield, FileText, Eye, EyeOff, User, Plus, Trash2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Input, Select, Textarea } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { getSupabase } from "@/lib/supabase";
-import { encrypt } from "@/lib/vault";
+import { encrypt, decrypt } from "@/lib/vault";
 import { cn } from "@/lib/utils";
-import type { VaultCredentialInsert, Client } from "@/lib/database.types";
+import type { VaultCredentialInsert, Client, VaultCredential } from "@/lib/database.types";
 
 interface CredentialModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSuccess?: () => void;
+    initialData?: VaultCredential | null;
+}
+
+interface CredentialField {
+    key: string;
+    value: string;
 }
 
 const credentialTypes = [
@@ -25,7 +31,7 @@ const credentialTypes = [
     { id: "other", label: "Outro", icon: FileText, color: "text-secondary" },
 ];
 
-export function CredentialModal({ isOpen, onClose, onSuccess }: CredentialModalProps) {
+export function CredentialModal({ isOpen, onClose, onSuccess, initialData }: CredentialModalProps) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [clients, setClients] = useState<Client[]>([]);
@@ -34,14 +40,62 @@ export function CredentialModal({ isOpen, onClose, onSuccess }: CredentialModalP
         name: "",
         type: "password",
         clientId: "",
-        value: "",
+        value: "", // Keep for legacy/single value compatibility
     });
+    const [fields, setFields] = useState<CredentialField[]>([]);
+    const [mode, setMode] = useState<'single' | 'multi'>('single');
 
     useEffect(() => {
         if (isOpen) {
             fetchClients();
+            if (initialData) {
+                // Edit Mode
+                let decryptedValue = "";
+                try {
+                    decryptedValue = decrypt(initialData.encrypted_value);
+                } catch (e) {
+                    console.error("Failed to decrypt for edit", e);
+                }
+
+                // Check if it's JSON (multi-field)
+                try {
+                    const parsed = JSON.parse(decryptedValue);
+                    if (Array.isArray(parsed) && parsed.every(item => 'key' in item && 'value' in item)) {
+                        setFields(parsed);
+                        setMode('multi');
+                        setFormData({
+                            name: initialData.name,
+                            type: initialData.type,
+                            clientId: initialData.client_id || "",
+                            value: "",
+                        });
+                    } else {
+                        // It's a simple string or not our specific JSON format
+                        throw new Error("Not a field array");
+                    }
+                } catch {
+                    // Fallback to single value
+                    setMode('single');
+                    setFormData({
+                        name: initialData.name,
+                        type: initialData.type,
+                        clientId: initialData.client_id || "",
+                        value: decryptedValue,
+                    });
+                }
+            } else {
+                // Reset for new entry
+                setFormData({
+                    name: "",
+                    type: "password",
+                    clientId: "",
+                    value: "",
+                });
+                setFields([{ key: "", value: "" }]);
+                setMode('single');
+            }
         }
-    }, [isOpen]);
+    }, [isOpen, initialData]);
 
     const fetchClients = async () => {
         const supabase = getSupabase();
@@ -66,8 +120,27 @@ export function CredentialModal({ isOpen, onClose, onSuccess }: CredentialModalP
                 return;
             }
 
+            // Determine final value to encrypt
+            let valueToEncrypt = formData.value;
+            if (mode === 'multi') {
+                // Filter out empty keys
+                const validFields = fields.filter(f => f.key.trim() !== "");
+                if (validFields.length === 0) {
+                    setError("Adicione pelo menos um campo válido.");
+                    setLoading(false);
+                    return;
+                }
+                valueToEncrypt = JSON.stringify(validFields);
+            } else {
+                if (!valueToEncrypt) {
+                    setError("O valor é obrigatório.");
+                    setLoading(false);
+                    return;
+                }
+            }
+
             // Encrypt the value before storing
-            const encryptedValue = encrypt(formData.value);
+            const encryptedValue = encrypt(valueToEncrypt);
 
             const credentialData: VaultCredentialInsert = {
                 user_id: user.id,
@@ -77,11 +150,22 @@ export function CredentialModal({ isOpen, onClose, onSuccess }: CredentialModalP
                 encrypted_value: encryptedValue,
             };
 
-            const { error: insertError } = await supabase
-                .from("vault_credentials")
-                .insert(credentialData as unknown as Record<string, unknown>);
+            let query;
+            if (initialData) {
+                // Update
+                query = supabase
+                    .from("vault_credentials")
+                    .update(credentialData as unknown as Record<string, unknown>)
+                    .eq('id', initialData.id);
+            } else {
+                // Insert
+                query = supabase
+                    .from("vault_credentials")
+                    .insert(credentialData as unknown as Record<string, unknown>);
+            }
 
-            if (insertError) throw insertError;
+            const { error: opError } = await query;
+            if (opError) throw opError;
 
             setFormData({
                 name: "",
@@ -108,7 +192,7 @@ export function CredentialModal({ isOpen, onClose, onSuccess }: CredentialModalP
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title="Nova Credencial"
+            title={initialData ? "Editar Credencial" : "Nova Credencial"}
             subtitle="Armazene credenciais de forma segura"
         >
             <form onSubmit={handleSubmit} className="space-y-5">
@@ -183,38 +267,122 @@ export function CredentialModal({ isOpen, onClose, onSuccess }: CredentialModalP
 
                 {/* Secure Value Input */}
                 <div>
-                    <label className="block text-sm font-medium text-text-secondary mb-2">
-                        {formData.type === "ssh_key" ? "Chave SSH" : "Valor"}
-                    </label>
-                    <div className="relative">
-                        {formData.type === "ssh_key" ? (
-                            <textarea
-                                placeholder="ssh-rsa AAAA..."
-                                className="input-field min-h-[100px] font-mono text-sm"
-                                value={formData.value}
-                                onChange={(e) => setFormData(prev => ({ ...prev, value: e.target.value }))}
-                                required
-                            />
-                        ) : (
-                            <div className="relative">
-                                <input
-                                    type={showValue ? "text" : "password"}
-                                    placeholder="••••••••••••"
-                                    className="input-field pr-12 font-mono"
+                    <div className="flex items-center justify-between mb-2">
+                        <label className="text-sm font-medium text-text-secondary">
+                            {formData.type === "ssh_key" ? "Chave SSH" : "Valor / Campos"}
+                        </label>
+                        <div className="flex bg-background-tertiary rounded-lg p-1">
+                            <button
+                                type="button"
+                                onClick={() => setMode('single')}
+                                className={cn(
+                                    "px-3 py-1 text-xs font-medium rounded-md transition-all",
+                                    mode === 'single' ? "bg-primary text-white shadow-sm" : "text-text-muted hover:text-text-primary"
+                                )}
+                            >
+                                Único
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setMode('multi')}
+                                className={cn(
+                                    "px-3 py-1 text-xs font-medium rounded-md transition-all",
+                                    mode === 'multi' ? "bg-primary text-white shadow-sm" : "text-text-muted hover:text-text-primary"
+                                )}
+                            >
+                                Múltiplos
+                            </button>
+                        </div>
+                    </div>
+
+                    {mode === 'single' ? (
+                        <div className="relative">
+                            {formData.type === "ssh_key" ? (
+                                <textarea
+                                    placeholder="ssh-rsa AAAA..."
+                                    className="input-field min-h-[100px] font-mono text-sm"
                                     value={formData.value}
                                     onChange={(e) => setFormData(prev => ({ ...prev, value: e.target.value }))}
-                                    required
                                 />
+                            ) : (
+                                <div className="relative">
+                                    <input
+                                        type={showValue ? "text" : "password"}
+                                        placeholder="••••••••••••"
+                                        className="input-field pr-12 font-mono"
+                                        value={formData.value}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, value: e.target.value }))}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowValue(!showValue)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-text-muted hover:text-text-primary transition-colors"
+                                    >
+                                        {showValue ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {fields.map((field, index) => (
+                                <div key={index} className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        placeholder="Chave (ex: Client ID)"
+                                        className="input-field w-1/3 text-xs"
+                                        value={field.key}
+                                        onChange={(e) => {
+                                            const newFields = [...fields];
+                                            newFields[index].key = e.target.value;
+                                            setFields(newFields);
+                                        }}
+                                    />
+                                    <div className="relative flex-1">
+                                        <input
+                                            type={showValue ? "text" : "password"}
+                                            placeholder="Valor"
+                                            className="input-field pr-8 text-xs font-mono"
+                                            value={field.value}
+                                            onChange={(e) => {
+                                                const newFields = [...fields];
+                                                newFields[index].value = e.target.value;
+                                                setFields(newFields);
+                                            }}
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const newFields = fields.filter((_, i) => i !== index);
+                                            setFields(newFields);
+                                        }}
+                                        className="p-2 text-text-muted hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ))}
+                            <div className="flex justify-between items-center pt-2">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    icon={Plus}
+                                    onClick={() => setFields([...fields, { key: "", value: "" }])}
+                                >
+                                    Adicionar Campo
+                                </Button>
                                 <button
                                     type="button"
                                     onClick={() => setShowValue(!showValue)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-text-muted hover:text-text-primary transition-colors"
+                                    className="text-xs text-primary hover:underline"
                                 >
-                                    {showValue ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                    {showValue ? "Ocultar Valores" : "Mostrar Valores"}
                                 </button>
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex gap-3 pt-2">
