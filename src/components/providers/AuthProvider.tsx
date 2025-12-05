@@ -23,20 +23,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         const supabase = getSupabase();
+        const minLoadTime = new Promise(resolve => setTimeout(resolve, 1500));
+        const authCheck = supabase.auth.getSession();
 
-        // Get initial session
-        supabase.auth.getSession().then(({ data: { session } }) => {
+        Promise.all([authCheck, minLoadTime]).then(([{ data: { session } }]) => {
             setSession(session);
             setUser(session?.user ?? null);
             setLoading(false);
         });
 
-        // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             (_event, session) => {
                 setSession(session);
                 setUser(session?.user ?? null);
-                setLoading(false);
+                // We don't set loading false here immediately to respect the initial load time
+                // But for subsequent auth changes (like sign out), we might want immediate feedback
+                // However, since this runs on mount, the Promise.all handles the initial load.
+                // For subsequent updates, loading is already false.
             }
         );
 
