@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { getSupabase } from "@/lib/supabase";
+import { SplashScreen } from "@/components/ui/SplashScreen";
 
 interface AuthContextType {
     user: User | null;
@@ -61,7 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return (
         <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut }}>
-            {children}
+            {loading ? <SplashScreen /> : children}
         </AuthContext.Provider>
     );
 }
