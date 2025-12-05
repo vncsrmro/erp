@@ -1,15 +1,14 @@
 "use client";
 
-import { ReactNode } from "react";
-import { BottomNav } from "./BottomNav";
-import { Header } from "./Header";
+import { ReactNode, useEffect } from "react";
+import { useLayout } from "@/components/providers/LayoutProvider";
 
 interface AppShellProps {
     children: ReactNode;
     title: string;
     subtitle?: string;
-    showSearch?: boolean;
-    hideBottomNav?: boolean;
+    showSearch?: boolean; // Kept for interface compatibility, but might be unused now or handled by Header via Context if needed
+    hideBottomNav?: boolean; // Handled by Layout? Or should we expose this to Context? For now, DashboardLayout always shows it.
     headerAction?: ReactNode;
 }
 
@@ -17,20 +16,16 @@ export function AppShell({
     children,
     title,
     subtitle,
-    showSearch = true,
-    hideBottomNav = false,
     headerAction,
 }: AppShellProps) {
-    return (
-        <div className="min-h-screen bg-background">
-            <Header title={title} subtitle={subtitle} showSearch={showSearch} headerAction={headerAction} />
+    const { setTitle, setSubtitle, setHeaderAction } = useLayout();
 
-            <main className="pb-24 px-4 max-w-7xl mx-auto">
-                {children}
-            </main>
+    useEffect(() => {
+        setTitle(title);
+        setSubtitle(subtitle);
+        setHeaderAction(headerAction);
+    }, [title, subtitle, headerAction, setTitle, setSubtitle, setHeaderAction]);
 
-            {!hideBottomNav && <BottomNav />}
-        </div>
-    );
+    return <>{children}</>;
 }
 

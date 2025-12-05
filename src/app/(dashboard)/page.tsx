@@ -18,8 +18,6 @@ import {
     DollarSign,
     BarChart3,
     FolderKanban,
-    CheckCircle2,
-    Clock
 } from "lucide-react";
 import { AppShell } from "@/components/layout";
 import { StatCard } from "@/components/ui";
@@ -30,7 +28,6 @@ import {
     generateClientReport,
     generateDomainReport,
 } from "@/lib/reports";
-import { mockClients, mockExpenses, mockRevenues, mockDomains, mockProjects } from "@/lib/mock-data";
 import { formatCurrency, daysUntil, cn } from "@/lib/utils";
 import type { Client, Expense, Revenue, Domain, Project } from "@/lib/database.types";
 
@@ -100,7 +97,6 @@ export default function DashboardPage() {
     };
 
     // Calculate KPIs
-    // Calculate KPIs
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth();
     const currentYear = currentDate.getFullYear();
@@ -111,7 +107,45 @@ export default function DashboardPage() {
         return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
     };
 
-    const monthlyRevenue = revenues
+    // Generate projected revenues from active clients (MRR)
+    const getProjectedRevenues = () => {
+        const projected: Revenue[] = [];
+
+        clients.forEach(client => {
+            if (client.status === 'active' && client.plan_value > 0) {
+                const dueDay = client.payment_day || 10; // Default to 10th if missing
+                const dueDate = new Date(currentYear, currentMonth, dueDay);
+
+                // Check if this client already has a generated revenue for this month
+                // This is a simple check to avoid duplication if the system auto-generates invoices
+                const hasGeneratedInvoice = revenues.some(r =>
+                    r.client_id === client.id &&
+                    isCurrentMonth(r.due_date)
+                );
+
+                if (!hasGeneratedInvoice) {
+                    projected.push({
+                        id: `proj_${client.id}`, // Temporary ID
+                        description: `Mensalidade - ${client.name}`,
+                        amount: client.plan_value,
+                        due_date: dueDate.toISOString(),
+                        is_paid: false,
+                        category: 'Mensalidade',
+                        client_id: client.id,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                        user_id: client.user_id
+                    });
+                }
+            }
+        });
+        return projected;
+    };
+
+    const projectedRevenues = getProjectedRevenues();
+    const allRevenues = [...revenues, ...projectedRevenues];
+
+    const monthlyRevenue = allRevenues
         .filter((r) => r.is_paid && isCurrentMonth(r.paid_date || r.due_date))
         .reduce((sum, r) => sum + r.amount, 0);
 
@@ -122,21 +156,7 @@ export default function DashboardPage() {
     const netProfit = monthlyRevenue - monthlyExpenses;
     const isProfit = netProfit >= 0;
 
-    // Total stats for other cards (if needed, or keep them as total?)
-    // The "Receitas" and "Despesas" cards below Net Profit currently show TOTAL.
-    // The subtitle says "pendente" or "a pagar".
-    // Usually these cards show "This Month" too in a dashboard.
-    // Let's update them to show "This Month" as well, or clarify.
-    // The user complained about "other months info".
-    // So I should probably filter ALL of them to be Current Month, OR clearly label them.
-    // "Receitas" card currently shows `totalRevenue` (all time paid).
-    // I will change it to `monthlyRevenue` to match "Lucro Líquido".
-    // And `pendingRevenue` should probably be "Pending This Month" or "Total Pending"?
-    // "Total Pending" is usually more useful.
-    // But "Total Revenue" (paid) should definitely be monthly if the label implies current status.
-    // Let's stick to Monthly for the main numbers to be consistent.
-
-    const totalRevenue = monthlyRevenue; // Update variable name usage or just reassign
+    const totalRevenue = monthlyRevenue;
     const totalExpenses = monthlyExpenses;
 
     const activeClients = clients.filter((c) => c.status === "active").length;
@@ -147,29 +167,21 @@ export default function DashboardPage() {
         return days <= 30;
     }).length;
 
-    // Pending revenues from invoices/revenues table
-    const pendingInvoices = revenues
-        .filter((r) => !r.is_paid)
+    // Pending revenues (Manual + Projected MRR)
+    const pendingRevenuesList = allRevenues.filter((r) => !r.is_paid);
+
+    const pendingRevenue = pendingRevenuesList
         .reduce((sum, r) => sum + r.amount, 0);
-
-    // MRR from active clients (expected monthly recurring revenue)
-    const mrr = clients
-        .filter((c) => c.status === "active")
-        .reduce((sum, c) => sum + c.plan_value, 0);
-
-    // Total A Receber = Pending Invoices + MRR (expected this month from clients)
-    const pendingRevenue = pendingInvoices + mrr;
 
     const pendingExpenses = expenses
         .filter((e) => !e.is_paid)
         .reduce((sum, e) => sum + e.amount, 0);
 
     const activeProjects = projects.filter(p => p.status === "in_progress").length;
-    const backlogProjects = projects.filter(p => p.status === "backlog").length;
 
     // PDF Report handlers
     const handleFinancialReport = () => {
-        generateFinancialReport({ clients, expenses, revenues, domains });
+        generateFinancialReport({ clients, expenses, revenues: allRevenues, domains });
     };
 
     const handleClientReport = () => {
@@ -273,7 +285,7 @@ export default function DashboardPage() {
                     <Link href="/finance">
                         <StatCard
                             title="MRR"
-                            value={formatCurrency(mrr)}
+                            value={formatCurrency(clients.filter(c => c.status === 'active').reduce((sum, c) => sum + c.plan_value, 0))}
                             subtitle={`${activeClients} clientes ativos`}
                             icon={BarChart3}
                             variant="primary"
@@ -302,7 +314,7 @@ export default function DashboardPage() {
                 {/* Charts Row */}
                 <motion.div variants={itemVariants} className="grid lg:grid-cols-3 gap-6">
                     <div className="lg:col-span-2">
-                        <CashFlowChart expenses={expenses} revenues={revenues} />
+                        <CashFlowChart expenses={expenses} revenues={allRevenues} />
                     </div>
 
                     {/* Quick Stats Card */}
@@ -466,8 +478,7 @@ export default function DashboardPage() {
                                 </Link>
                             </div>
                             <div className="space-y-2">
-                                {revenues
-                                    .filter((r) => !r.is_paid)
+                                {pendingRevenuesList
                                     .slice(0, 4)
                                     .map((r) => (
                                         <div key={r.id} className="flex items-center justify-between p-2 rounded-lg bg-background-tertiary">
@@ -475,7 +486,7 @@ export default function DashboardPage() {
                                             <span className="text-sm font-medium text-success ml-2">{formatCurrency(r.amount)}</span>
                                         </div>
                                     ))}
-                                {revenues.filter((r) => !r.is_paid).length === 0 && (
+                                {pendingRevenuesList.length === 0 && (
                                     <p className="text-sm text-text-muted py-3 text-center">Nenhum valor pendente</p>
                                 )}
                             </div>
