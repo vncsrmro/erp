@@ -19,7 +19,7 @@ const navItems = [
     { href: "/projects", icon: FolderKanban, label: "Projetos" },
     { href: "/finance", icon: Wallet, label: "Financeiro" },
     { href: "/domains", icon: Globe, label: "Domínios" },
-    { href: "/vault", icon: Settings, label: "Config" },
+    { href: "/vault", icon: Settings, label: "Vault" },
 ];
 
 export function BottomNav() {
