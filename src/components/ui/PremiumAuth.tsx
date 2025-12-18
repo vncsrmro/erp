@@ -572,10 +572,10 @@ export function PremiumAuth({
                     <button
                         onClick={() => setAuthMode('login')}
                         className={cn(
-                            "flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all",
+                            "flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all duration-200",
                             authMode === 'login'
-                                ? "bg-background-primary text-text-primary shadow-sm"
-                                : "text-text-muted hover:text-text-primary"
+                                ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/25"
+                                : "text-text-muted hover:text-text-primary hover:bg-background-tertiary"
                         )}
                         type="button"
                     >
@@ -584,10 +584,10 @@ export function PremiumAuth({
                     <button
                         onClick={() => setAuthMode('signup')}
                         className={cn(
-                            "flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all",
+                            "flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all duration-200",
                             authMode === 'signup'
-                                ? "bg-background-primary text-text-primary shadow-sm"
-                                : "text-text-muted hover:text-text-primary"
+                                ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/25"
+                                : "text-text-muted hover:text-text-primary hover:bg-background-tertiary"
                         )}
                         type="button"
                     >
