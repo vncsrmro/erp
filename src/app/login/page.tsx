@@ -3,10 +3,16 @@
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { PremiumAuth } from "@/components/ui/PremiumAuth";
-import { EtherealShadow } from "@/components/ui/etheral-shadow";
 import { getSupabase } from "@/lib/supabase";
+
+// Lazy load the heavy background component
+const EtherealShadow = dynamic(
+    () => import("@/components/ui/etheral-shadow").then((mod) => mod.EtherealShadow),
+    { ssr: false }
+);
 
 export default function LoginPage() {
     const router = useRouter();

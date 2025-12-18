@@ -8,6 +8,9 @@ const nextConfig = {
         domains: [],
         formats: ['image/avif', 'image/webp'],
     },
+    experimental: {
+        optimizePackageImports: ['lucide-react', 'recharts', 'framer-motion'],
+    },
 };
 
 const pwaConfig = withPWA({
