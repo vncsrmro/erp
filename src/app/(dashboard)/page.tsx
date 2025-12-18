@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import {
     TrendingUp,
@@ -14,14 +14,18 @@ import {
     FileText,
     RefreshCw,
     Wallet,
-    Calendar,
     DollarSign,
     BarChart3,
     FolderKanban,
+    Database,
+    Zap,
+    Building2,
+    Smartphone,
 } from "lucide-react";
 import { AppShell } from "@/components/layout";
 import { StatCard } from "@/components/ui";
 import { CashFlowChart } from "@/components/finance/CashFlowChart";
+import { MRRGrowthChart, CategoryStatsCard, PlanDistributionChart, TrialAlerts } from "@/components/dashboard";
 import { getSupabase } from "@/lib/supabase";
 import {
     generateFinancialReport,
@@ -70,15 +74,6 @@ export default function DashboardPage() {
                 setProjects(projectsRes.value.data);
             }
 
-            // Log errors for debugging
-            results.forEach((res, index) => {
-                if (res.status === "rejected") {
-                    console.error(`Error fetching data at index ${index}:`, res.reason);
-                } else if (res.value.error) {
-                    console.error(`Supabase error at index ${index}:`, res.value.error);
-                }
-            });
-
         } catch (error) {
             console.error("Unexpected error fetching dashboard data:", error);
         } finally {
@@ -96,7 +91,45 @@ export default function DashboardPage() {
         fetchData();
     };
 
-    // Calculate KPIs
+    // Category-based metrics
+    const inovasysClients = useMemo(() =>
+        clients.filter(c => (c.category || 'inovasys') === 'inovasys'), [clients]);
+    const paperxClients = useMemo(() =>
+        clients.filter(c => c.category === 'paperx'), [clients]);
+
+    // Active clients by category
+    const activeInovasys = inovasysClients.filter(c => c.status === 'active');
+    const activePaperx = paperxClients.filter(c => c.status === 'active');
+
+    // MRR calculations
+    const mrrInovasys = activeInovasys.reduce((sum, c) => sum + c.plan_value, 0);
+    const mrrPaperx = activePaperx.reduce((sum, c) => sum + c.plan_value, 0);
+    const totalMRR = mrrInovasys + mrrPaperx;
+
+    // Total users (PaperX)
+    const totalPaperxUsers = paperxClients.reduce((sum, c) => sum + (c.user_limit || 0), 0);
+
+    // Total storage (PaperX)
+    const totalStorage = paperxClients.reduce((sum, c) => sum + (c.storage_used_gb || 0), 0);
+
+    // Status counts
+    const activeClients = clients.filter(c => c.status === 'active').length;
+    const trialClients = clients.filter(c => c.status === 'trial');
+    const overdueClients = clients.filter(c => c.payment_status === 'overdue').length;
+    const inactiveClients = clients.filter(c => c.status === 'inactive').length;
+
+    // Churn rate (simple: inactive / total)
+    const churnRate = clients.length > 0
+        ? ((inactiveClients / clients.length) * 100).toFixed(1)
+        : "0.0";
+
+    // Expiring domains
+    const expiringDomains = domains.filter(d => {
+        const days = daysUntil(new Date(d.expiration_date));
+        return days <= 30;
+    }).length;
+
+    // Current month calculations
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth();
     const currentYear = currentDate.getFullYear();
@@ -110,22 +143,16 @@ export default function DashboardPage() {
     // Generate projected revenues from active clients (MRR)
     const getProjectedRevenues = () => {
         const projected: Revenue[] = [];
-
         clients.forEach(client => {
             if (client.status === 'active' && client.plan_value > 0) {
-                const dueDay = client.billing_day || 10; // Default to 10th if missing
+                const dueDay = client.billing_day || 10;
                 const dueDate = new Date(currentYear, currentMonth, dueDay);
-
-                // Check if this client already has a generated revenue for this month
-                // This is a simple check to avoid duplication if the system auto-generates invoices
                 const hasGeneratedInvoice = revenues.some(r =>
-                    r.client_id === client.id &&
-                    isCurrentMonth(r.due_date)
+                    r.client_id === client.id && isCurrentMonth(r.due_date)
                 );
-
                 if (!hasGeneratedInvoice) {
                     projected.push({
-                        id: `proj_${client.id}`, // Temporary ID
+                        id: `proj_${client.id}`,
                         description: `Mensalidade - ${client.name}`,
                         amount: client.plan_value,
                         due_date: dueDate.toISOString(),
@@ -146,38 +173,55 @@ export default function DashboardPage() {
     const allRevenues = [...revenues, ...projectedRevenues];
 
     const monthlyRevenue = allRevenues
-        .filter((r) => r.is_paid && isCurrentMonth(r.paid_date || r.due_date))
+        .filter(r => r.is_paid && isCurrentMonth(r.paid_date || r.due_date))
         .reduce((sum, r) => sum + r.amount, 0);
 
     const monthlyExpenses = expenses
-        .filter((e) => e.is_paid && isCurrentMonth(e.paid_date || e.due_date))
+        .filter(e => e.is_paid && isCurrentMonth(e.paid_date || e.due_date))
         .reduce((sum, e) => sum + e.amount, 0);
 
     const netProfit = monthlyRevenue - monthlyExpenses;
     const isProfit = netProfit >= 0;
 
-    const totalRevenue = monthlyRevenue;
-    const totalExpenses = monthlyExpenses;
-
-    const activeClients = clients.filter((c) => c.status === "active").length;
-    const overdueClients = clients.filter((c) => c.payment_status === "overdue").length;
-
-    const expiringDomains = domains.filter((d) => {
-        const days = daysUntil(new Date(d.expiration_date));
-        return days <= 30;
-    }).length;
-
-    // Pending revenues (Manual + Projected MRR)
-    const pendingRevenuesList = allRevenues.filter((r) => !r.is_paid);
-
-    const pendingRevenue = pendingRevenuesList
+    const pendingRevenue = allRevenues
+        .filter(r => !r.is_paid)
         .reduce((sum, r) => sum + r.amount, 0);
 
     const pendingExpenses = expenses
-        .filter((e) => !e.is_paid)
+        .filter(e => !e.is_paid)
         .reduce((sum, e) => sum + e.amount, 0);
 
     const activeProjects = projects.filter(p => p.status === "in_progress").length;
+
+    // MRR Growth data (mock historical for now - in production would come from DB)
+    const mrrGrowthData = useMemo(() => {
+        const months = ['Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        // Simulate growth pattern based on current MRR
+        const baseMRR = totalMRR * 0.7;
+        return months.map((month, i) => ({
+            month,
+            mrr: Math.round(baseMRR + (totalMRR - baseMRR) * ((i + 1) / months.length)),
+        }));
+    }, [totalMRR]);
+
+    // Plan distribution data
+    const planDistribution = useMemo(() => {
+        const planCounts: Record<string, { count: number; color: string }> = {};
+        clients.forEach(c => {
+            const plan = c.plan || 'Sem plano';
+            if (!planCounts[plan]) {
+                planCounts[plan] = { count: 0, color: '' };
+            }
+            planCounts[plan].count++;
+        });
+
+        const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
+        return Object.entries(planCounts).map(([plan, data], i) => ({
+            plan,
+            count: data.count,
+            color: colors[i % colors.length],
+        }));
+    }, [clients]);
 
     // PDF Report handlers
     const handleFinancialReport = () => {
@@ -196,7 +240,7 @@ export default function DashboardPage() {
         hidden: { opacity: 0 },
         visible: {
             opacity: 1,
-            transition: { staggerChildren: 0.08 },
+            transition: { staggerChildren: 0.06 },
         },
     };
 
@@ -206,7 +250,7 @@ export default function DashboardPage() {
     };
 
     return (
-        <AppShell title="Dashboard 360°" subtitle="Visão completa do negócio">
+        <AppShell title="Dashboard 360°" subtitle="Visão executiva completa do negócio">
             <motion.div
                 variants={containerVariants}
                 initial="hidden"
@@ -214,7 +258,7 @@ export default function DashboardPage() {
                 className="space-y-6 py-4"
             >
                 {/* Action Bar */}
-                <motion.div variants={itemVariants} className="flex items-center justify-between">
+                <motion.div variants={itemVariants} className="flex items-center justify-between flex-wrap gap-4">
                     <div className="flex items-center gap-2">
                         <motion.button
                             whileHover={{ scale: 1.05 }}
@@ -235,7 +279,6 @@ export default function DashboardPage() {
                         </span>
                     </div>
 
-                    {/* Report Buttons */}
                     <div className="flex gap-2">
                         <motion.button
                             whileHover={{ scale: 1.02 }}
@@ -267,69 +310,107 @@ export default function DashboardPage() {
                     </div>
                 </motion.div>
 
-                {/* Main KPI Grid */}
-                <motion.div
-                    variants={itemVariants}
-                    className="grid grid-cols-2 lg:grid-cols-4 gap-4"
-                >
-                    <Link href="/finance">
-                        <StatCard
-                            title="Lucro Líquido"
-                            value={formatCurrency(netProfit)}
-                            subtitle="Este mês"
-                            icon={isProfit ? TrendingUp : TrendingDown}
-                            variant={isProfit ? "success" : "danger"}
-                            trend={{ value: 12.5, isPositive: isProfit }}
-                        />
-                    </Link>
-                    <Link href="/finance">
-                        <StatCard
-                            title="MRR"
-                            value={formatCurrency(clients.filter(c => c.status === 'active').reduce((sum, c) => sum + c.plan_value, 0))}
-                            subtitle={`${activeClients} clientes ativos`}
-                            icon={BarChart3}
-                            variant="primary"
-                        />
-                    </Link>
-                    <Link href="/finance">
-                        <StatCard
-                            title="Receitas"
-                            value={formatCurrency(totalRevenue)}
-                            subtitle={pendingRevenue > 0 ? `${formatCurrency(pendingRevenue)} pendente` : "Tudo recebido"}
-                            icon={ArrowUpRight}
-                            variant="success"
-                        />
-                    </Link>
-                    <Link href="/finance">
-                        <StatCard
-                            title="Despesas"
-                            value={formatCurrency(totalExpenses)}
-                            subtitle={pendingExpenses > 0 ? `${formatCurrency(pendingExpenses)} a pagar` : "Tudo pago"}
-                            icon={ArrowDownRight}
-                            variant="danger"
-                        />
-                    </Link>
+                {/* Hero KPIs */}
+                <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <StatCard
+                        title="MRR Total"
+                        value={formatCurrency(totalMRR)}
+                        subtitle={`${activeClients} clientes ativos`}
+                        icon={BarChart3}
+                        variant="primary"
+                        trend={{ value: 8.5, isPositive: true }}
+                    />
+                    <StatCard
+                        title="Lucro Líquido"
+                        value={formatCurrency(netProfit)}
+                        subtitle="Este mês"
+                        icon={isProfit ? TrendingUp : TrendingDown}
+                        variant={isProfit ? "success" : "danger"}
+                        trend={{ value: 12.5, isPositive: isProfit }}
+                    />
+                    <StatCard
+                        title="Clientes"
+                        value={`${activeClients}/${clients.length}`}
+                        subtitle={`${trialClients.length} em trial`}
+                        icon={Users}
+                        variant="default"
+                    />
+                    <StatCard
+                        title="Churn Rate"
+                        value={`${churnRate}%`}
+                        subtitle={`${inactiveClients} inativos`}
+                        icon={TrendingDown}
+                        variant={parseFloat(churnRate) > 5 ? "danger" : "success"}
+                    />
+                </motion.div>
+
+                {/* Category Cards */}
+                <motion.div variants={itemVariants} className="grid md:grid-cols-2 gap-6">
+                    <CategoryStatsCard
+                        category="inovasys"
+                        title="InovaSys"
+                        subtitle="Sites, Lojas e Sistemas"
+                        mrr={mrrInovasys}
+                        clientCount={activeInovasys.length}
+                        stats={[
+                            { label: "Total Clientes", value: inovasysClients.length, icon: Building2 },
+                            { label: "Domínios", value: domains.length, icon: Globe },
+                            { label: "Projetos Ativos", value: activeProjects, icon: FolderKanban },
+                            {
+                                label: "Inadimplentes",
+                                value: inovasysClients.filter(c => c.payment_status === 'overdue').length,
+                                icon: AlertCircle,
+                                variant: inovasysClients.filter(c => c.payment_status === 'overdue').length > 0 ? "danger" : "success"
+                            },
+                        ]}
+                    />
+                    <CategoryStatsCard
+                        category="paperx"
+                        title="PaperX"
+                        subtitle="SaaS Multi-Tenant"
+                        mrr={mrrPaperx}
+                        clientCount={activePaperx.length}
+                        stats={[
+                            { label: "Total Tenants", value: paperxClients.length, icon: Smartphone },
+                            { label: "Usuários", value: totalPaperxUsers, icon: Users },
+                            { label: "Storage (GB)", value: totalStorage.toFixed(1), icon: Database },
+                            {
+                                label: "Em Trial",
+                                value: paperxClients.filter(c => c.status === 'trial').length,
+                                icon: Zap,
+                                variant: "warning"
+                            },
+                        ]}
+                    />
                 </motion.div>
 
                 {/* Charts Row */}
                 <motion.div variants={itemVariants} className="grid lg:grid-cols-3 gap-6">
                     <div className="lg:col-span-2">
+                        <MRRGrowthChart data={mrrGrowthData} />
+                    </div>
+                    <PlanDistributionChart data={planDistribution} />
+                </motion.div>
+
+                {/* Cash Flow & Alerts */}
+                <motion.div variants={itemVariants} className="grid lg:grid-cols-3 gap-6">
+                    <div className="lg:col-span-2">
                         <CashFlowChart expenses={expenses} revenues={allRevenues} />
                     </div>
 
-                    {/* Quick Stats Card */}
-                    <div className="card-elevated p-5 space-y-4">
-                        <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
-                            <Wallet className="w-5 h-5 text-primary" />
-                            Resumo Rápido
-                        </h3>
+                    <div className="space-y-6">
+                        {/* Quick Stats */}
+                        <div className="card-elevated p-5 space-y-3">
+                            <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+                                <Wallet className="w-5 h-5 text-primary" />
+                                Resumo Financeiro
+                            </h3>
 
-                        <div className="space-y-3">
                             <Link href="/finance" className="block">
-                                <div className="flex items-center justify-between p-3 rounded-xl bg-background-tertiary hover:bg-background-secondary transition-colors cursor-pointer">
+                                <div className="flex items-center justify-between p-3 rounded-xl bg-background-tertiary hover:bg-background-secondary transition-colors">
                                     <div className="flex items-center gap-3">
                                         <div className="p-2 rounded-lg bg-success/15 text-success">
-                                            <DollarSign className="w-4 h-4" />
+                                            <ArrowUpRight className="w-4 h-4" />
                                         </div>
                                         <span className="text-text-secondary text-sm">A Receber</span>
                                     </div>
@@ -338,10 +419,10 @@ export default function DashboardPage() {
                             </Link>
 
                             <Link href="/finance" className="block">
-                                <div className="flex items-center justify-between p-3 rounded-xl bg-background-tertiary hover:bg-background-secondary transition-colors cursor-pointer">
+                                <div className="flex items-center justify-between p-3 rounded-xl bg-background-tertiary hover:bg-background-secondary transition-colors">
                                     <div className="flex items-center gap-3">
                                         <div className="p-2 rounded-lg bg-danger/15 text-danger">
-                                            <DollarSign className="w-4 h-4" />
+                                            <ArrowDownRight className="w-4 h-4" />
                                         </div>
                                         <span className="text-text-secondary text-sm">A Pagar</span>
                                     </div>
@@ -350,174 +431,112 @@ export default function DashboardPage() {
                             </Link>
 
                             <Link href="/domains" className="block">
-                                <div className="flex items-center justify-between p-3 rounded-xl bg-background-tertiary hover:bg-background-secondary transition-colors cursor-pointer">
+                                <div className="flex items-center justify-between p-3 rounded-xl bg-background-tertiary hover:bg-background-secondary transition-colors">
                                     <div className="flex items-center gap-3">
-                                        <div className="p-2 rounded-lg bg-warning/15 text-warning">
+                                        <div className={cn(
+                                            "p-2 rounded-lg",
+                                            expiringDomains > 0 ? "bg-warning/15 text-warning" : "bg-success/15 text-success"
+                                        )}>
                                             <Globe className="w-4 h-4" />
                                         </div>
                                         <span className="text-text-secondary text-sm">Domínios Vencendo</span>
                                     </div>
-                                    <span className="font-semibold text-warning">{expiringDomains}</span>
+                                    <span className={cn(
+                                        "font-semibold",
+                                        expiringDomains > 0 ? "text-warning" : "text-success"
+                                    )}>{expiringDomains}</span>
                                 </div>
                             </Link>
 
                             <Link href="/clients" className="block">
-                                <div className="flex items-center justify-between p-3 rounded-xl bg-background-tertiary hover:bg-background-secondary transition-colors cursor-pointer">
+                                <div className="flex items-center justify-between p-3 rounded-xl bg-background-tertiary hover:bg-background-secondary transition-colors">
                                     <div className="flex items-center gap-3">
                                         <div className={cn(
                                             "p-2 rounded-lg",
                                             overdueClients > 0 ? "bg-danger/15 text-danger" : "bg-success/15 text-success"
                                         )}>
-                                            <Users className="w-4 h-4" />
+                                            <AlertCircle className="w-4 h-4" />
                                         </div>
                                         <span className="text-text-secondary text-sm">Inadimplentes</span>
                                     </div>
                                     <span className={cn(
                                         "font-semibold",
                                         overdueClients > 0 ? "text-danger" : "text-success"
-                                    )}>
-                                        {overdueClients}
-                                    </span>
-                                </div>
-                            </Link>
-
-                            <Link href="/projects" className="block">
-                                <div className="flex items-center justify-between p-3 rounded-xl bg-background-tertiary hover:bg-background-secondary transition-colors cursor-pointer">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 rounded-lg bg-primary/15 text-primary">
-                                            <FolderKanban className="w-4 h-4" />
-                                        </div>
-                                        <span className="text-text-secondary text-sm">Projetos Ativos</span>
-                                    </div>
-                                    <span className="font-semibold text-primary">{activeProjects}</span>
+                                    )}>{overdueClients}</span>
                                 </div>
                             </Link>
                         </div>
+
+                        {/* Trial Alerts */}
+                        {trialClients.length > 0 && (
+                            <TrialAlerts
+                                clients={trialClients.filter(c => c.trial_ends_at).map(c => ({
+                                    id: c.id,
+                                    name: c.name,
+                                    category: c.category || 'inovasys',
+                                    trial_ends_at: c.trial_ends_at!,
+                                    plan: c.plan,
+                                }))}
+                            />
+                        )}
                     </div>
                 </motion.div>
 
-                {/* Alerts Section */}
-                {(expiringDomains > 0 || overdueClients > 0) && (
-                    <motion.div variants={itemVariants}>
-                        <h3 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
-                            <AlertCircle className="w-5 h-5 text-warning" />
-                            Alertas que Requerem Atenção
-                        </h3>
-
-                        <div className="grid md:grid-cols-2 gap-4">
-                            {expiringDomains > 0 && (
-                                <Link href="/domains">
-                                    <motion.div
-                                        initial={{ opacity: 0, x: -20 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        className="p-4 rounded-xl bg-warning/10 border border-warning/30 hover:bg-warning/15 transition-colors cursor-pointer"
-                                    >
-                                        <div className="flex items-start gap-3">
-                                            <div className="p-2.5 rounded-xl bg-warning/20 text-warning">
-                                                <Globe className="w-5 h-5" />
-                                            </div>
-                                            <div className="flex-1">
-                                                <h4 className="font-semibold text-warning">Domínios Expirando</h4>
-                                                <p className="text-sm text-warning/80 mt-1">
-                                                    {expiringDomains} domínio(s) vencem nos próximos 30 dias
-                                                </p>
-                                                <span className="text-sm text-warning underline mt-2 inline-block">
-                                                    Ver domínios →
-                                                </span>
-                                            </div>
+                {/* Recent Clients */}
+                <motion.div variants={itemVariants} className="card-elevated p-5">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-semibold text-text-primary">Clientes Recentes</h3>
+                        <Link href="/clients" className="text-sm text-primary hover:underline">
+                            Ver todos
+                        </Link>
+                    </div>
+                    <div className="space-y-2">
+                        {clients
+                            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                            .slice(0, 5)
+                            .map((client, i) => (
+                                <motion.div
+                                    key={client.id}
+                                    initial={{ opacity: 0, x: -10 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: i * 0.05 }}
+                                    className="flex items-center justify-between p-3 rounded-xl bg-background-tertiary hover:bg-background-secondary transition-colors"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className={cn(
+                                            "w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold",
+                                            (client.category || 'inovasys') === 'paperx'
+                                                ? "bg-emerald-500/15 text-emerald-400"
+                                                : "bg-blue-500/15 text-blue-400"
+                                        )}>
+                                            {client.name.substring(0, 2).toUpperCase()}
                                         </div>
-                                    </motion.div>
-                                </Link>
-                            )}
-
-                            {overdueClients > 0 && (
-                                <Link href="/clients">
-                                    <motion.div
-                                        initial={{ opacity: 0, x: 20 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        className="p-4 rounded-xl bg-danger/10 border border-danger/30 hover:bg-danger/15 transition-colors cursor-pointer"
-                                    >
-                                        <div className="flex items-start gap-3">
-                                            <div className="p-2.5 rounded-xl bg-danger/20 text-danger">
-                                                <AlertCircle className="w-5 h-5" />
-                                            </div>
-                                            <div className="flex-1">
-                                                <h4 className="font-semibold text-danger">Clientes Inadimplentes</h4>
-                                                <p className="text-sm text-danger/80 mt-1">
-                                                    {overdueClients} cliente(s) com pagamento atrasado
-                                                </p>
-                                                <span className="text-sm text-danger underline mt-2 inline-block">
-                                                    Ver clientes →
-                                                </span>
-                                            </div>
+                                        <div>
+                                            <p className="text-sm font-medium text-text-primary">{client.name}</p>
+                                            <p className="text-xs text-text-muted">
+                                                {(client.category || 'inovasys') === 'paperx' ? 'PaperX' : 'InovaSys'} • {client.plan}
+                                            </p>
                                         </div>
-                                    </motion.div>
-                                </Link>
-                            )}
-                        </div>
-                    </motion.div>
-                )}
-
-                {/* Recent Activity */}
-                <motion.div variants={itemVariants}>
-                    <h3 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
-                        <Calendar className="w-5 h-5 text-primary" />
-                        Próximos Vencimentos
-                    </h3>
-
-                    <div className="grid md:grid-cols-2 gap-4">
-                        {/* Upcoming Revenues */}
-                        <div className="card-elevated p-4">
-                            <div className="flex items-center justify-between mb-3">
-                                <h4 className="text-sm font-medium text-text-secondary flex items-center gap-2">
-                                    <ArrowUpRight className="w-4 h-4 text-success" />
-                                    A Receber
-                                </h4>
-                                <Link href="/finance" className="text-xs text-primary hover:underline">
-                                    Ver tudo
-                                </Link>
-                            </div>
-                            <div className="space-y-2">
-                                {pendingRevenuesList
-                                    .slice(0, 4)
-                                    .map((r) => (
-                                        <div key={r.id} className="flex items-center justify-between p-2 rounded-lg bg-background-tertiary">
-                                            <span className="text-sm text-text-primary truncate flex-1">{r.description}</span>
-                                            <span className="text-sm font-medium text-success ml-2">{formatCurrency(r.amount)}</span>
-                                        </div>
-                                    ))}
-                                {pendingRevenuesList.length === 0 && (
-                                    <p className="text-sm text-text-muted py-3 text-center">Nenhum valor pendente</p>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Upcoming Expenses */}
-                        <div className="card-elevated p-4">
-                            <div className="flex items-center justify-between mb-3">
-                                <h4 className="text-sm font-medium text-text-secondary flex items-center gap-2">
-                                    <ArrowDownRight className="w-4 h-4 text-danger" />
-                                    A Pagar
-                                </h4>
-                                <Link href="/finance" className="text-xs text-primary hover:underline">
-                                    Ver tudo
-                                </Link>
-                            </div>
-                            <div className="space-y-2">
-                                {expenses
-                                    .filter((e) => !e.is_paid)
-                                    .slice(0, 4)
-                                    .map((e) => (
-                                        <div key={e.id} className="flex items-center justify-between p-2 rounded-lg bg-background-tertiary">
-                                            <span className="text-sm text-text-primary truncate flex-1">{e.description}</span>
-                                            <span className="text-sm font-medium text-danger ml-2">{formatCurrency(e.amount)}</span>
-                                        </div>
-                                    ))}
-                                {expenses.filter((e) => !e.is_paid).length === 0 && (
-                                    <p className="text-sm text-text-muted py-3 text-center">Nenhuma despesa pendente</p>
-                                )}
-                            </div>
-                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-sm font-semibold text-text-primary">
+                                            {formatCurrency(client.plan_value)}
+                                        </p>
+                                        <span className={cn(
+                                            "text-xs px-2 py-0.5 rounded-full",
+                                            client.status === 'active' && "bg-success/15 text-success",
+                                            client.status === 'trial' && "bg-warning/15 text-warning",
+                                            client.status === 'overdue' && "bg-danger/15 text-danger",
+                                            client.status === 'inactive' && "bg-gray-500/15 text-gray-400"
+                                        )}>
+                                            {client.status === 'active' && 'Ativo'}
+                                            {client.status === 'trial' && 'Trial'}
+                                            {client.status === 'overdue' && 'Inadimplente'}
+                                            {client.status === 'inactive' && 'Inativo'}
+                                        </span>
+                                    </div>
+                                </motion.div>
+                            ))}
                     </div>
                 </motion.div>
             </motion.div>

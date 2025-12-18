@@ -28,6 +28,19 @@ export interface Database {
                     created_at: string;
                     last_payment: string | null;
                     next_payment: string | null;
+                    // New PaperX fields
+                    category: 'inovasys' | 'paperx';
+                    slug: string | null;
+                    user_limit: number;
+                    storage_used_gb: number;
+                    custom_domain: string | null;
+                    logo_url: string | null;
+                    favicon_url: string | null;
+                    whatsapp_api_key: string | null;
+                    supabase_project_id: string | null;
+                    setup_fee: number;
+                    notes: string | null;
+                    trial_ends_at: string | null;
                 };
                 Insert: Record<string, unknown>;
                 Update: Record<string, unknown>;
