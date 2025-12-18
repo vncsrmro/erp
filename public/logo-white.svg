@@ -1,12 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 140" fill="none">
   <!-- Code Symbol </> -->
-  <g stroke="#FFFFFF" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M70 15 L50 35 L70 55"/>
-    <path d="M90 10 L110 60"/>
-    <path d="M130 15 L150 35 L130 55"/>
+  <g stroke="#FFFFFF" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Left bracket < -->
+    <path d="M115 12 L95 32 L115 52"/>
+    <!-- Forward slash / -->
+    <path d="M133 8 L153 56"/>
+    <!-- Right bracket > -->
+    <path d="M165 12 L185 32 L165 52"/>
   </g>
+  
   <!-- Text "inovasys" -->
   <g fill="#FFFFFF">
-    <text x="100" y="85" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-weight="700" font-size="28">inovasys</text>
+    <text x="140" y="90" text-anchor="middle" font-family="Poppins, system-ui, -apple-system, sans-serif" font-weight="800" font-size="36" letter-spacing="-1">inovasys</text>
+  </g>
+  
+  <!-- Tagline -->
+  <g fill="#FFFFFF" opacity="0.7">
+    <text x="140" y="115" text-anchor="middle" font-family="Poppins, system-ui, -apple-system, sans-serif" font-weight="400" font-size="11" font-style="italic" letter-spacing="0.5">soluções que transformam o seu negócio</text>
   </g>
 </svg>
