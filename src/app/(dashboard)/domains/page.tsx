@@ -16,7 +16,6 @@ import { AppShell } from "@/components/layout";
 import { Button, Input } from "@/components/ui";
 import { ClientDetailModal } from "@/components/modals";
 import { getSupabase } from "@/lib/supabase";
-import { mockDomains, mockClients } from "@/lib/mock-data";
 import { formatDate, daysUntil, getUrgencyLevel, cn } from "@/lib/utils";
 import type { Domain, Client } from "@/lib/database.types";
 import Link from "next/link";
@@ -42,38 +41,9 @@ export default function DomainsPage() {
             setDomains(domainsRes.data || []);
             setClients(clientsRes.data || []);
         } catch {
-            // Fallback to mock data
-            setDomains(mockDomains.map(d => ({
-                id: d.id,
-                user_id: "mock",
-                client_id: d.clientId,
-                domain: d.domain,
-                registrar: d.registrar,
-                expiration_date: d.expirationDate.toISOString(),
-                auto_renew: d.autoRenew,
-                ssl_expiration: d.sslExpiration?.toISOString() || null,
-                notes: null,
-                created_at: new Date().toISOString(),
-            })));
-            setClients(mockClients.map(c => ({
-                id: c.id,
-                user_id: "mock",
-                name: c.name,
-                cnpj: null,
-                responsible: null,
-                email: c.email,
-                phone: c.phone || null,
-                plan: c.plan,
-                plan_value: c.planValue,
-                billing_day: 10,
-                status: c.status,
-                payment_status: c.paymentStatus,
-                project_status: c.projectStatus,
-                tags: c.tags,
-                created_at: new Date().toISOString(),
-                last_payment: c.lastPayment?.toISOString() || null,
-                next_payment: c.nextPayment?.toISOString() || null,
-            })));
+            console.error("Error fetching domains");
+            setDomains([]);
+            setClients([]);
         } finally {
             setLoading(false);
         }

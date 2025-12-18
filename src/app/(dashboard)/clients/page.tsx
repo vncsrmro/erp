@@ -19,7 +19,6 @@ import { AppShell } from "@/components/layout";
 import { Button, Input } from "@/components/ui";
 import { ClientModal, ClientDetailModal } from "@/components/modals";
 import { getSupabase } from "@/lib/supabase";
-import { mockClients } from "@/lib/mock-data";
 import { formatCurrency, cn } from "@/lib/utils";
 import type { Client } from "@/lib/database.types";
 
@@ -44,26 +43,8 @@ export default function ClientsPage() {
             if (error) throw error;
             setClients(data || []);
         } catch {
-            // Fallback to mock data if not connected
-            setClients(mockClients.map(c => ({
-                id: c.id,
-                user_id: "mock",
-                name: c.name,
-                cnpj: null,
-                responsible: null,
-                email: c.email,
-                phone: c.phone || null,
-                plan: c.plan,
-                plan_value: c.planValue,
-                billing_day: 10,
-                status: c.status,
-                payment_status: c.paymentStatus,
-                project_status: c.projectStatus,
-                tags: c.tags,
-                created_at: c.createdAt.toISOString(),
-                last_payment: c.lastPayment?.toISOString() || null,
-                next_payment: c.nextPayment?.toISOString() || null,
-            })));
+            console.error("Error fetching clients");
+            setClients([]);
         } finally {
             setLoading(false);
         }

@@ -113,7 +113,7 @@ export default function DashboardPage() {
 
         clients.forEach(client => {
             if (client.status === 'active' && client.plan_value > 0) {
-                const dueDay = client.payment_day || 10; // Default to 10th if missing
+                const dueDay = client.billing_day || 10; // Default to 10th if missing
                 const dueDate = new Date(currentYear, currentMonth, dueDay);
 
                 // Check if this client already has a generated revenue for this month
@@ -129,11 +129,11 @@ export default function DashboardPage() {
                         description: `Mensalidade - ${client.name}`,
                         amount: client.plan_value,
                         due_date: dueDate.toISOString(),
+                        paid_date: null,
                         is_paid: false,
-                        category: 'Mensalidade',
+                        type: 'mrr',
                         client_id: client.id,
                         created_at: new Date().toISOString(),
-                        updated_at: new Date().toISOString(),
                         user_id: client.user_id
                     });
                 }

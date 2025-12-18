@@ -1,14 +1,19 @@
 {
     "name": "InovaSys Manager",
     "short_name": "InovaSys",
-    "description": "Sistema de Gestão Integrada InovaSys",
+    "description": "Sistema de Gestão Integrada ERP/CRM - InovaSys",
     "start_url": "/",
     "id": "/",
     "scope": "/",
     "display": "standalone",
-    "background_color": "#0A0A0A",
-    "theme_color": "#0A0A0A",
-    "orientation": "portrait",
+    "background_color": "#0a0a0f",
+    "theme_color": "#00E096",
+    "orientation": "portrait-primary",
+    "categories": [
+        "business",
+        "finance",
+        "productivity"
+    ],
     "icons": [
         {
             "src": "/icon-192.png",
@@ -22,5 +27,45 @@
             "type": "image/png",
             "purpose": "any maskable"
         }
-    ]
+    ],
+    "shortcuts": [
+        {
+            "name": "Dashboard",
+            "short_name": "Dashboard",
+            "description": "Visão geral do negócio",
+            "url": "/",
+            "icons": [
+                {
+                    "src": "/icon-192.png",
+                    "sizes": "192x192"
+                }
+            ]
+        },
+        {
+            "name": "Clientes",
+            "short_name": "Clientes",
+            "description": "Gerenciar clientes",
+            "url": "/clients",
+            "icons": [
+                {
+                    "src": "/icon-192.png",
+                    "sizes": "192x192"
+                }
+            ]
+        },
+        {
+            "name": "Financeiro",
+            "short_name": "Financeiro",
+            "description": "Controle financeiro",
+            "url": "/finance",
+            "icons": [
+                {
+                    "src": "/icon-192.png",
+                    "sizes": "192x192"
+                }
+            ]
+        }
+    ],
+    "screenshots": [],
+    "prefer_related_applications": false
 }

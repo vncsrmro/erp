@@ -18,7 +18,6 @@ import { Button, StatCard } from "@/components/ui";
 import { ExpenseModal, RevenueModal } from "@/components/modals";
 import { CashFlowChart } from "@/components/finance/CashFlowChart";
 import { getSupabase } from "@/lib/supabase";
-import { mockExpenses, mockRevenues, mockClients } from "@/lib/mock-data";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import type { Expense, Revenue, Client } from "@/lib/database.types";
 
@@ -48,51 +47,7 @@ export default function FinancePage() {
             if (revenuesRes.data) setRevenues(revenuesRes.data);
             if (clientsRes.data) setClients(clientsRes.data);
         } catch {
-            // Fallback to mock data
-            setExpenses(mockExpenses.map(e => ({
-                id: e.id,
-                user_id: "mock",
-                category: e.category,
-                description: e.description,
-                amount: e.amount,
-                due_date: e.dueDate.toISOString(),
-                paid_date: e.paidDate?.toISOString() || null,
-                is_paid: e.isPaid,
-                is_recurring: e.isRecurring,
-                recurrence_type: e.recurrenceType || null,
-                created_at: new Date().toISOString(),
-            })));
-            setRevenues(mockRevenues.map(r => ({
-                id: r.id,
-                user_id: "mock",
-                client_id: r.clientId,
-                description: r.description,
-                amount: r.amount,
-                due_date: r.dueDate.toISOString(),
-                paid_date: r.paidDate?.toISOString() || null,
-                is_paid: r.isPaid,
-                type: r.type,
-                created_at: new Date().toISOString(),
-            })));
-            setClients(mockClients.filter(c => c.status === "active").map(c => ({
-                id: c.id,
-                user_id: "mock",
-                name: c.name,
-                cnpj: null,
-                responsible: null,
-                email: c.email,
-                phone: c.phone || null,
-                plan: c.plan,
-                plan_value: c.planValue,
-                billing_day: 10,
-                status: c.status,
-                payment_status: c.paymentStatus,
-                project_status: c.projectStatus,
-                tags: c.tags,
-                created_at: new Date().toISOString(),
-                last_payment: c.lastPayment?.toISOString() || null,
-                next_payment: c.nextPayment?.toISOString() || null,
-            })));
+            console.error("Error fetching financial data");
         }
     }, []);
 
