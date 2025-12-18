@@ -20,7 +20,11 @@ import {
     AlertTriangle,
     Globe,
     Plus,
-    ExternalLink
+    ExternalLink,
+    Link as LinkIcon,
+    Users,
+    Database,
+    FileText
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
@@ -64,6 +68,13 @@ export function ClientDetailModal({
         tags: "",
         status: "active" as Client["status"],
         payment_status: "pending" as Client["payment_status"],
+        // PaperX fields
+        category: "inovasys" as "inovasys" | "paperx",
+        slug: "",
+        user_limit: "5",
+        custom_domain: "",
+        setup_fee: "0",
+        notes: "",
     });
 
     const [domainForm, setDomainForm] = useState({
@@ -105,6 +116,13 @@ export function ClientDetailModal({
                 tags: client.tags?.join(", ") || "",
                 status: client.status,
                 payment_status: client.payment_status,
+                // PaperX fields
+                category: client.category || "inovasys",
+                slug: client.slug || "",
+                user_limit: client.user_limit?.toString() || "5",
+                custom_domain: client.custom_domain || "",
+                setup_fee: client.setup_fee?.toString() || "0",
+                notes: client.notes || "",
             });
             setViewMode("details");
             setError(null);
@@ -160,6 +178,9 @@ export function ClientDetailModal({
             const planValue = parseFloat(formData.plan_value.replace(/[^\d.,]/g, "").replace(",", ".")) || 0;
             const billingDay = parseInt(formData.billing_day) || 10;
 
+            const setupFee = parseFloat(formData.setup_fee.replace(/[^\d.,]/g, "").replace(",", ".")) || 0;
+            const userLimit = parseInt(formData.user_limit) || 5;
+
             const { error: updateError } = await supabase
                 .from("clients")
                 .update({
@@ -174,6 +195,13 @@ export function ClientDetailModal({
                     tags: formData.tags ? formData.tags.split(",").map(t => t.trim()) : [],
                     status: formData.status,
                     payment_status: formData.payment_status,
+                    // PaperX fields
+                    category: formData.category,
+                    slug: formData.category === "paperx" ? formData.slug || null : null,
+                    user_limit: formData.category === "paperx" ? userLimit : 0,
+                    custom_domain: formData.category === "paperx" ? formData.custom_domain || null : null,
+                    setup_fee: formData.category === "paperx" ? setupFee : 0,
+                    notes: formData.notes || null,
                 })
                 .eq("id", client.id);
 
@@ -514,6 +542,113 @@ export function ClientDetailModal({
                             </div>
                         </div>
 
+                        {/* Category Selector */}
+                        <div>
+                            <label className="block text-sm font-medium text-text-secondary mb-2">
+                                Categoria
+                            </label>
+                            <div className="grid grid-cols-2 gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData(prev => ({ ...prev, category: "inovasys" }))}
+                                    className={cn(
+                                        "p-4 rounded-xl border-2 transition-all text-left",
+                                        formData.category === "inovasys"
+                                            ? "border-blue-500 bg-blue-500/10"
+                                            : "border-border bg-background-secondary hover:border-blue-500/50"
+                                    )}
+                                >
+                                    <div className={cn(
+                                        "w-10 h-10 rounded-xl flex items-center justify-center mb-2",
+                                        formData.category === "inovasys" ? "bg-blue-500/20" : "bg-background-tertiary"
+                                    )}>
+                                        <Database className={cn(
+                                            "w-5 h-5",
+                                            formData.category === "inovasys" ? "text-blue-400" : "text-text-muted"
+                                        )} />
+                                    </div>
+                                    <p className={cn(
+                                        "font-semibold",
+                                        formData.category === "inovasys" ? "text-blue-400" : "text-text-primary"
+                                    )}>InovaSys</p>
+                                    <p className="text-xs text-text-muted">Cliente InovaSys</p>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData(prev => ({ ...prev, category: "paperx" }))}
+                                    className={cn(
+                                        "p-4 rounded-xl border-2 transition-all text-left",
+                                        formData.category === "paperx"
+                                            ? "border-emerald-500 bg-emerald-500/10"
+                                            : "border-border bg-background-secondary hover:border-emerald-500/50"
+                                    )}
+                                >
+                                    <div className={cn(
+                                        "w-10 h-10 rounded-xl flex items-center justify-center mb-2",
+                                        formData.category === "paperx" ? "bg-emerald-500/20" : "bg-background-tertiary"
+                                    )}>
+                                        <FileText className={cn(
+                                            "w-5 h-5",
+                                            formData.category === "paperx" ? "text-emerald-400" : "text-text-muted"
+                                        )} />
+                                    </div>
+                                    <p className={cn(
+                                        "font-semibold",
+                                        formData.category === "paperx" ? "text-emerald-400" : "text-text-primary"
+                                    )}>PaperX</p>
+                                    <p className="text-xs text-text-muted">Tenant PaperX</p>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* PaperX Fields (conditional) */}
+                        {formData.category === "paperx" && (
+                            <div className="space-y-4 p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
+                                <p className="text-sm font-medium text-emerald-400 flex items-center gap-2">
+                                    <FileText className="w-4 h-4" />
+                                    Configurações PaperX
+                                </p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <Input
+                                        label="Slug (URL)"
+                                        icon={LinkIcon}
+                                        placeholder="empresa-slug"
+                                        value={formData.slug}
+                                        onChange={handleChange("slug")}
+                                    />
+                                    <Input
+                                        label="Limite de Usuários"
+                                        icon={Users}
+                                        type="number"
+                                        min="1"
+                                        value={formData.user_limit}
+                                        onChange={handleChange("user_limit")}
+                                    />
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <Input
+                                        label="Domínio Customizado"
+                                        icon={Globe}
+                                        placeholder="app.empresa.com"
+                                        value={formData.custom_domain}
+                                        onChange={handleChange("custom_domain")}
+                                    />
+                                    <Input
+                                        label="Taxa de Setup (R$)"
+                                        icon={DollarSign}
+                                        value={formData.setup_fee}
+                                        onChange={handleChange("setup_fee")}
+                                    />
+                                </div>
+                                <Input
+                                    label="Observações"
+                                    placeholder="Notas sobre o tenant..."
+                                    value={formData.notes}
+                                    onChange={handleChange("notes")}
+                                />
+                            </div>
+                        )}
+
                         <Input
                             label="Tags (separadas por vírgula)"
                             icon={Tag}
@@ -643,6 +778,13 @@ export function ClientDetailModal({
                     >
                         {/* Status badges */}
                         <div className="flex flex-wrap gap-2">
+                            {/* Category badge */}
+                            <span className={cn(
+                                "badge",
+                                client.category === "paperx" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                            )}>
+                                {client.category === "paperx" ? "PaperX" : "InovaSys"}
+                            </span>
                             <span className={cn(
                                 "badge",
                                 client.status === "active" && "badge-success",
