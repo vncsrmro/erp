@@ -19,7 +19,7 @@ import {
     Tag
 } from "lucide-react";
 import { AppShell } from "@/components/layout";
-import { Button, Input } from "@/components/ui";
+import { Button, Input, Select } from "@/components/ui";
 import { CredentialModal } from "@/components/modals";
 import { getSupabase } from "@/lib/supabase";
 import { decrypt } from "@/lib/vault";
@@ -28,6 +28,8 @@ import type { VaultCredential } from "@/lib/database.types";
 
 export default function VaultPage() {
     const [searchQuery, setSearchQuery] = useState("");
+    const [typeFilter, setTypeFilter] = useState("all");
+    const [clientFilter, setClientFilter] = useState("all");
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [visibleIds, setVisibleIds] = useState<Set<string>>(new Set());
     const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -121,9 +123,22 @@ export default function VaultPage() {
         }
     };
 
-    const filteredCredentials = credentials.filter((cred) =>
-        cred.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredCredentials = credentials.filter((cred) => {
+        const matchesSearch = cred.name.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesType = typeFilter === "all" || cred.type === typeFilter;
+
+        // @ts-ignore
+        const clientName = cred.clients?.name || "Sem Cliente";
+        const matchesClient = clientFilter === "all" || clientName === clientFilter;
+
+        return matchesSearch && matchesType && matchesClient;
+    });
+
+    // Extract unique clients for the filter
+    const clientOptions = Array.from(new Set(credentials.map(c => {
+        // @ts-ignore
+        return c.clients?.name || "Sem Cliente";
+    }))).sort().map(name => ({ value: name, label: name }));
 
     const getTypeIcon = (type: string) => {
         switch (type) {
@@ -169,14 +184,38 @@ export default function VaultPage() {
                         </p>
                     </motion.div>
 
-                    {/* Search and Add */}
-                    <div className="flex gap-3">
+                    {/* Search and Filters */}
+                    <div className="flex flex-col md:flex-row gap-3">
                         <div className="flex-1">
                             <Input
                                 placeholder="Buscar credencial..."
                                 icon={Search}
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </div>
+                        <div className="w-full md:w-48">
+                            <Select
+                                options={[
+                                    { value: "all", label: "Todos os Tipos" },
+                                    { value: "api_key", label: "API Key" },
+                                    { value: "password", label: "Senha" },
+                                    { value: "ssh_key", label: "SSH Key" },
+                                    { value: "token", label: "Token" },
+                                    { value: "other", label: "Outros" },
+                                ]}
+                                value={typeFilter}
+                                onChange={(e) => setTypeFilter(e.target.value)}
+                            />
+                        </div>
+                        <div className="w-full md:w-48">
+                            <Select
+                                options={[
+                                    { value: "all", label: "Todos os Clientes" },
+                                    ...clientOptions
+                                ]}
+                                value={clientFilter}
+                                onChange={(e) => setClientFilter(e.target.value)}
                             />
                         </div>
                         <Button icon={Plus} size="md" onClick={() => setIsModalOpen(true)}>

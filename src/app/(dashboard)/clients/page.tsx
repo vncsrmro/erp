@@ -16,7 +16,7 @@ import {
     AlertCircle
 } from "lucide-react";
 import { AppShell } from "@/components/layout";
-import { Button, Input } from "@/components/ui";
+import { Button, Input, Select } from "@/components/ui";
 import { ClientModal, ClientDetailModal } from "@/components/modals";
 import { getSupabase } from "@/lib/supabase";
 import { formatCurrency, cn } from "@/lib/utils";
@@ -26,6 +26,8 @@ type FilterStatus = "all" | "active" | "trial" | "overdue" | "inactive" | "due-s
 
 export default function ClientsPage() {
     const [searchQuery, setSearchQuery] = useState("");
+    const [categoryFilter, setCategoryFilter] = useState("all");
+    const [projectStatusFilter, setProjectStatusFilter] = useState("all");
     const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -97,7 +99,10 @@ export default function ClientsPage() {
                 matchesFilter = client.status === filterStatus;
         }
 
-        return matchesSearch && matchesFilter;
+        const matchesCategory = categoryFilter === "all" || client.category === categoryFilter;
+        const matchesProjectStatus = projectStatusFilter === "all" || client.project_status === projectStatusFilter;
+
+        return matchesSearch && matchesFilter && matchesCategory && matchesProjectStatus;
     });
 
     const statusFilters: { id: FilterStatus; label: string; count?: number }[] = [
@@ -139,14 +144,37 @@ export default function ClientsPage() {
         <>
             <AppShell title="Clientes" subtitle={`${clients.length} clientes cadastrados`}>
                 <div className="space-y-4 py-4">
-                    {/* Search and Add */}
-                    <div className="flex gap-3">
+                    {/* Filters */}
+                    <div className="flex flex-col md:flex-row gap-3">
                         <div className="flex-1">
                             <Input
                                 placeholder="Buscar por nome, e-mail, CNPJ..."
                                 icon={Search}
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </div>
+                        <div className="w-full md:w-48">
+                            <Select
+                                options={[
+                                    { value: "all", label: "Todas Categorias" },
+                                    { value: "inovasys", label: "InovaSys" },
+                                    { value: "paperx", label: "PaperX" },
+                                ]}
+                                value={categoryFilter}
+                                onChange={(e) => setCategoryFilter(e.target.value)}
+                            />
+                        </div>
+                        <div className="w-full md:w-48">
+                            <Select
+                                options={[
+                                    { value: "all", label: "Todos Projetos" },
+                                    { value: "active", label: "Em Andamento" },
+                                    { value: "paused", label: "Pausado" },
+                                    { value: "completed", label: "Concluído" },
+                                ]}
+                                value={projectStatusFilter}
+                                onChange={(e) => setProjectStatusFilter(e.target.value)}
                             />
                         </div>
                         <Button icon={Plus} size="md" onClick={() => setIsModalOpen(true)}>
