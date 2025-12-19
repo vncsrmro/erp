@@ -13,8 +13,8 @@ export const metadata: Metadata = {
         title: "InovaSys Manager",
     },
     icons: {
-        icon: "/icon-192.png",
-        shortcut: "/icon-192.png",
+        icon: "/logo-white.svg",
+        shortcut: "/logo-white.svg",
         apple: "/apple-touch-icon.png",
     },
 };

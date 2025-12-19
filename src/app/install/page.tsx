@@ -213,7 +213,7 @@ export default function InstallPage() {
                     <Link href="/" className="flex items-center gap-2">
                         <div className="relative w-32 h-10">
                             <Image
-                                src="/logo.png"
+                                src="/logo-white.svg"
                                 alt="InovaSys"
                                 fill
                                 className="object-contain object-left"
