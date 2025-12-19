@@ -16,7 +16,8 @@ import {
     Check,
     Trash2,
     Edit,
-    Tag
+    Tag,
+    ExternalLink
 } from "lucide-react";
 import { AppShell } from "@/components/layout";
 import { Button, Input, Select } from "@/components/ui";
@@ -28,6 +29,7 @@ import { VaultCredential } from "@/lib/database.types";
 import { VaultSecurityModal } from "@/components/modals/VaultSecurityModal";
 import { VaultLockScreen } from "@/components/vault/VaultLockScreen";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { useVault } from "@/components/providers/VaultProvider";
 
 export default function VaultPage() {
     const [searchQuery, setSearchQuery] = useState("");
@@ -42,19 +44,15 @@ export default function VaultPage() {
 
     // Security State
     const { user } = useAuth();
+    const { isLocked, unlock, isConfigured } = useVault();
     const [isSecurityModalOpen, setIsSecurityModalOpen] = useState(false);
-    const [isLocked, setIsLocked] = useState(false);
+
+    // We can still use local settings for other UI things if needed, but lock state is global
     const [securitySettings, setSecuritySettings] = useState<any>(null);
 
     const fetchSecuritySettings = useCallback(() => {
         if (user?.user_metadata?.vault_security) {
-            const settings = user.user_metadata.vault_security;
-            setSecuritySettings(settings);
-
-            // Only lock if PIN is enabled and we haven't unlocked yet (this simple logic locks on every refresh)
-            if (settings.pin_enabled) {
-                setIsLocked(true);
-            }
+            setSecuritySettings(user.user_metadata.vault_security);
         }
     }, [user]);
 
@@ -62,6 +60,7 @@ export default function VaultPage() {
         fetchSecuritySettings();
     }, [fetchSecuritySettings]);
 
+    // Fetch credentials... (rest of the file)
     const fetchCredentials = useCallback(async () => {
         try {
             const supabase = getSupabase();
@@ -73,7 +72,6 @@ export default function VaultPage() {
             if (error) throw error;
             setCredentials(data || []);
         } catch {
-            // Use empty array as fallback
             setCredentials([]);
         } finally {
             setLoading(false);
@@ -83,6 +81,8 @@ export default function VaultPage() {
     useEffect(() => {
         fetchCredentials();
     }, [fetchCredentials]);
+
+    // ... helper functions ...
 
     const toggleVisibility = (id: string) => {
         setVisibleIds((prev) => {
@@ -193,12 +193,39 @@ export default function VaultPage() {
         }
     };
 
+    // Helper to render text with clickable links
+    const renderTextWithLinks = (text: string) => {
+        const urlRegex = /(https?:\/\/[^\s]+)/g;
+        const parts = text.split(urlRegex);
+
+        return parts.map((part, index) => {
+            if (urlRegex.test(part)) {
+                // Reset regex lastIndex
+                urlRegex.lastIndex = 0;
+                return (
+                    <a
+                        key={index}
+                        href={part}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:text-primary-light underline inline-flex items-center gap-1"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {part.length > 40 ? part.substring(0, 40) + '...' : part}
+                        <ExternalLink className="w-3 h-3 inline" />
+                    </a>
+                );
+            }
+            return part;
+        });
+    };
+
     return (
         <>
             <AppShell title="Vault" subtitle="Credenciais seguras">
                 {isLocked ? (
                     <VaultLockScreen
-                        onUnlock={() => setIsLocked(false)}
+                        onUnlock={unlock}
                         correctPin={securitySettings?.pin_code || ""}
                         biometricsEnabled={securitySettings?.biometrics_enabled || false}
                     />
@@ -350,8 +377,8 @@ export default function VaultPage() {
                                                                     <span className="text-xs font-medium text-text-secondary min-w-[80px]">
                                                                         {field.key}:
                                                                     </span>
-                                                                    <code className="flex-1 text-sm font-mono text-text-primary truncate">
-                                                                        {field.value}
+                                                                    <code className="flex-1 text-sm font-mono text-text-primary break-all">
+                                                                        {renderTextWithLinks(field.value)}
                                                                     </code>
                                                                     <motion.button
                                                                         whileHover={{ scale: 1.1 }}
@@ -382,8 +409,8 @@ export default function VaultPage() {
 
                                                 return (
                                                     <div className="flex items-center gap-2">
-                                                        <code className="flex-1 text-sm font-mono text-text-secondary truncate">
-                                                            {isVisible ? (value as string) : "••••••••••••••••"}
+                                                        <code className="flex-1 text-sm font-mono text-text-secondary break-all">
+                                                            {isVisible ? renderTextWithLinks(value as string) : "••••••••••••••••"}
                                                         </code>
                                                         <div className="flex items-center gap-1">
                                                             <motion.button

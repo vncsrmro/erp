@@ -22,11 +22,6 @@ export function VaultLockScreen({ onUnlock, correctPin, biometricsEnabled }: Vau
         const check = async () => {
             const avail = await isBiometricsAvailable();
             setIsBioAvailable(avail);
-
-            // Auto-trigger biometrics if enabled and available
-            if (biometricsEnabled && avail) {
-                handleBiometricUnlock();
-            }
         };
         check();
     }, [biometricsEnabled]);

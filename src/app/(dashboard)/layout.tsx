@@ -1,6 +1,7 @@
 "use client";
 
 import { LayoutProvider, useLayout } from "@/components/providers/LayoutProvider";
+import { VaultProvider } from "@/components/providers/VaultProvider";
 import { Header } from "@/components/layout/Header";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { ReactNode } from "react";
@@ -22,7 +23,9 @@ function DashboardLayoutContent({ children }: { children: ReactNode }) {
 export default function DashboardLayout({ children }: { children: ReactNode }) {
     return (
         <LayoutProvider>
-            <DashboardLayoutContent>{children}</DashboardLayoutContent>
+            <VaultProvider>
+                <DashboardLayoutContent>{children}</DashboardLayoutContent>
+            </VaultProvider>
         </LayoutProvider>
     );
 }

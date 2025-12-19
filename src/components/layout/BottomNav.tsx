@@ -2,7 +2,8 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useVault } from "@/components/providers/VaultProvider";
 import {
     LayoutDashboard,
     Users,
@@ -24,6 +25,8 @@ const navItems = [
 
 export function BottomNav() {
     const pathname = usePathname();
+    const router = useRouter();
+    const { isLocked, unlockWithBiometrics } = useVault();
 
     return (
         <motion.nav
@@ -41,6 +44,21 @@ export function BottomNav() {
                         <Link
                             key={item.href}
                             href={item.href}
+                            onClick={async (e) => {
+                                if (item.href === "/vault") {
+                                    if (isLocked) {
+                                        e.preventDefault();
+                                        // Try to unlock immediately
+                                        const success = await unlockWithBiometrics();
+                                        if (success) {
+                                            router.push("/vault");
+                                        } else {
+                                            // Fallback to normal navigation (shows lock screen)
+                                            router.push("/vault");
+                                        }
+                                    }
+                                }
+                            }}
                             className="relative flex flex-col items-center justify-center py-2 px-3 touch-target"
                         >
                             <motion.div
